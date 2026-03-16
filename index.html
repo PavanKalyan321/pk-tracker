@@ -10,7 +10,6 @@
 <meta name="application-name" content="TFM Lines">
 <title>TFM — Line Registry v4</title>
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@300;400;500;600;700&family=Oxanium:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <style>
 :root{--bg:#08090B;--bg2:#0E1014;--surface:#12141A;--surface2:#181B22;--surface3:#1E222B;--border:#1E222B;--border2:#2A2F3A;--text:#E8EAF0;--text2:#9CA3B4;--text3:#5C6478;--text4:#3A3F4E;--green:#00E68A;--blue:#4C9EFF;--amber:#FFB938;--red:#FF5C5C;--gray:#6B7280;--cyan:#00D4FF;--purple:#A78BFA;--orange:#FF8A3D;--pink:#F472B6}
 *{box-sizing:border-box;margin:0;padding:0}body{background:var(--bg);min-height:100vh;font-family:'IBM Plex Mono',monospace;color:var(--text);overflow-x:hidden}
@@ -46,15 +45,11 @@ body::before{content:'';position:fixed;inset:0;z-index:0;pointer-events:none;bac
 <div class="app" id="app">
   <div class="loading-screen">
     <div style="font-family:'Oxanium',sans-serif;font-size:36px;font-weight:700;color:var(--cyan);letter-spacing:8px;text-shadow:0 0 30px rgba(0,212,255,.5)">TFM</div>
-    <div style="font-size:9px;color:var(--text3);letter-spacing:4px;animation:pulse 1.5s infinite">CONNECTING TO SUPABASE...</div>
+    <div style="font-size:9px;color:var(--text3);letter-spacing:4px;animation:pulse 1.5s infinite">LOADING...</div>
     <div style="width:40px;height:40px;border:2px solid var(--border2);border-top-color:var(--cyan);border-radius:50%;animation:spin 1s linear infinite;margin-top:8px"></div>
   </div>
 </div>
 <script>
-// ─── Supabase ───────────────────────────────────────────────────────────────
-const SB_URL='https://vxgczsordoackfzoudud.supabase.co';
-const SB_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZ4Z2N6c29yZG9hY2tmem91ZHVkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzM2NDYyMTIsImV4cCI6MjA4OTIyMjIxMn0.Qc7FgWd3L1adHf8hEG31FzHTCcmg7rXLHlQ3miy81a0';
-const sb=supabase.createClient(SB_URL,SB_KEY);
 
 // ─── Constants ───────────────────────────────────────────────────────────────
 const SK={m:"tfm4-modules",p:"tfm4-platforms",l:"tfm4-lines",g:"tfm4-log"};
@@ -66,7 +61,7 @@ const QA=[500,1000,2000,5000,10000];
 
 // ─── State ───────────────────────────────────────────────────────────────────
 let M=[],P=[],L=[],logs=[];
-let aM="all",vw="grid",srch="",filt="all",modal=null,toastT=null,col={},logO=false,syncSt="ok";
+let aM="all",vw="grid",srch="",filt="all",modal=null,toastT=null,col={},logO=false;
 
 // ─── Default Data ────────────────────────────────────────────────────────────
 const DM=[
@@ -116,101 +111,28 @@ const DL=[
   {id:"GRW-001",platform:"Groww",module:"stocks",label:"Line 1",status:"initialized",balance:0,deposit:0,currency:"INR",lastActive:null,notes:"",history:[]}
 ];
 
-// ─── Supabase Load / Save ─────────────────────────────────────────────────────
-async function ld(){
-  try{
-    const [mr,pr,lr,gr]=await Promise.all([
-      sb.from('tfm_modules').select('*').order('created_at',{ascending:true}),
-      sb.from('tfm_platforms').select('*'),
-      sb.from('tfm_lines').select('*'),
-      sb.from('tfm_logs').select('*').order('time',{ascending:false}).limit(300)
-    ]);
-    if(mr.error)throw mr.error;
-    if(pr.error)throw pr.error;
-    if(lr.error)throw lr.error;
-    if(mr.data&&mr.data.length>0){
-      M=mr.data.map(m=>({id:m.id,name:m.name,icon:m.icon||'💰',color:m.color,desc:m.description||''}));
-      P=(pr.data||[]).map(p=>({id:p.id,module:p.module,icon:p.icon,color:p.color}));
-      L=(lr.data||[]).map(l=>({
-        id:l.id,platform:l.platform,module:l.module,label:l.label||'Line 1',
-        status:l.status||'initialized',balance:l.balance||0,deposit:l.deposit||0,
-        currency:l.currency||'INR',lastActive:l.last_active,notes:l.notes||'',history:l.history||[]
-      }));
-      logs=(gr.data||[]).reverse().map(l=>({time:l.time,msg:l.msg}));
-      syncSt='ok';
-    }else{
-      M=structuredClone(DM);P=structuredClone(DP);L=structuredClone(DL);logs=[];
-      await seedDefaults();
-      syncSt='ok';
-    }
-  }catch(e){
-    console.error('Load error:',e);
-    syncSt='err';
-    toast('Load error: '+(e.message||e.code||JSON.stringify(e)));
-    // Fallback to localStorage
-    try{M=JSON.parse(localStorage.getItem(SK.m))}catch{}
-    try{P=JSON.parse(localStorage.getItem(SK.p))}catch{}
-    try{L=JSON.parse(localStorage.getItem(SK.l))}catch{}
-    try{logs=JSON.parse(localStorage.getItem(SK.g))||[]}catch{logs=[]}
-    if(!M||!M.length)M=structuredClone(DM);
-    if(!P||!P.length)P=structuredClone(DP);
-    if(!L||!L.length)L=structuredClone(DL);
-    L.forEach(l=>{if(!l.history)l.history=[];if(l.deposit===undefined)l.deposit=0;if(!l.currency)l.currency='INR'});
-  }
-}
-
-async function seedDefaults(){
-  await sb.from('tfm_modules').upsert(M.map(m=>({id:m.id,name:m.name,icon:m.icon,color:m.color,description:m.desc||''})));
-  await sb.from('tfm_platforms').upsert(P.map(p=>({id:p.id,module:p.module,icon:p.icon,color:p.color})));
-  await sb.from('tfm_lines').upsert(L.map(l=>({
-    id:l.id,platform:l.platform,module:l.module,label:l.label,
-    status:l.status,balance:l.balance,deposit:l.deposit||0,
-    currency:l.currency||'INR',last_active:l.lastActive,notes:l.notes||'',history:l.history||[]
-  })));
+// ─── Load / Save (localStorage) ───────────────────────────────────────────────
+function ld(){
+  try{M=JSON.parse(localStorage.getItem(SK.m))||[];}catch{M=[];}
+  try{P=JSON.parse(localStorage.getItem(SK.p))||[];}catch{P=[];}
+  try{L=JSON.parse(localStorage.getItem(SK.l))||[];}catch{L=[];}
+  try{logs=JSON.parse(localStorage.getItem(SK.g))||[];}catch{logs=[];}
+  if(!M.length){M=structuredClone(DM);P=structuredClone(DP);L=structuredClone(DL);}
+  L.forEach(l=>{if(!l.history)l.history=[];if(l.deposit===undefined)l.deposit=0;if(!l.currency)l.currency='INR';});
 }
 
 function sv(){
-  localStorage.setItem(SK.m,JSON.stringify(M));
-  localStorage.setItem(SK.p,JSON.stringify(P));
-  localStorage.setItem(SK.l,JSON.stringify(L));
-  svAsync().catch(console.error);
-}
-
-async function svAsync(){
-  if(!M.length&&!P.length&&!L.length)return;
-  const ind=document.getElementById('sync-ind');
-  if(ind){ind.style.background='var(--amber)';ind.title='Syncing...';}
   try{
-    const results=await Promise.all([
-      sb.from('tfm_modules').upsert(M.map(m=>({id:m.id,name:m.name,icon:m.icon,color:m.color,description:m.desc||''}))),
-      sb.from('tfm_platforms').upsert(P.map(p=>({id:p.id,module:p.module,icon:p.icon,color:p.color})),{onConflict:'id,module'}),
-      sb.from('tfm_lines').upsert(L.map(l=>({
-        id:l.id,platform:l.platform,module:l.module,label:l.label,
-        status:l.status,balance:l.balance,deposit:l.deposit,
-        currency:l.currency,last_active:l.lastActive,notes:l.notes||'',
-        history:l.history||[],updated_at:new Date().toISOString()
-      })))
-    ]);
-    const failed=results.find(r=>r.error);
-    if(failed)throw failed.error;
-    syncSt='ok';
-    const ind2=document.getElementById('sync-ind');
-    if(ind2){ind2.style.background='var(--green)';ind2.title='Synced ✓';}
-  }catch(e){
-    console.error('Sync error:',e);
-    syncSt='err';
-    const ind2=document.getElementById('sync-ind');
-    const errMsg=e.message||e.code||JSON.stringify(e);
-    if(ind2){ind2.style.background='var(--red)';ind2.title='Sync error: '+errMsg;}
-    toast('Sync error: '+errMsg);
-  }
+    localStorage.setItem(SK.m,JSON.stringify(M));
+    localStorage.setItem(SK.p,JSON.stringify(P));
+    localStorage.setItem(SK.l,JSON.stringify(L));
+  }catch(e){console.warn('localStorage save failed:',e);}
 }
 
 function lg(m){
   const entry={time:new Date().toISOString(),msg:m};
   logs.push(entry);
-  localStorage.setItem(SK.g,JSON.stringify(logs.slice(-300)));
-  sb.from('tfm_logs').insert({time:entry.time,msg:entry.msg}).catch(console.error);
+  try{localStorage.setItem(SK.g,JSON.stringify(logs.slice(-300)));}catch(e){}
 }
 
 // ─── Formatting ───────────────────────────────────────────────────────────────
@@ -237,20 +159,20 @@ function spk(h,c){if(!h||h.length<2)return"";const v=h.slice(-12).map(x=>x.bal),
 function stB(l){const s=SC[l.status];return`<button onclick="event.stopPropagation();cyc('${l.id}')" class="status-badge ${s.p?'pulse':''}" style="background:${s.c}15;border-color:${s.c}40;color:${s.c}">${s.l}</button>`}
 
 // ─── Actions ──────────────────────────────────────────────────────────────────
-function cyc(id){const l=L.find(x=>x.id===id);const o=l.status;l.status=STS[(STS.indexOf(o)+1)%STS.length];if(l.status==="active")l.lastActive=new Date().toISOString();lg(`${id} → ${SC[l.status].l}`);sv();R()}
-function qf(id,a){const l=L.find(x=>x.id===id);l.balance+=a;l.deposit+=a;l.history.push({bal:l.balance,ts:Date.now()});if(l.status==="initialized")l.status="funded";lg(`${id} +${fmt(a,l.currency)}`);sv();R();toast(`${id} funded`)}
+function cyc(id){const l=L.find(x=>x.id===id);if(!l)return;const o=l.status;l.status=STS[(STS.indexOf(o)+1)%STS.length];if(l.status==="active")l.lastActive=new Date().toISOString();lg(`${id} → ${SC[l.status].l}`);sv();R()}
+function qf(id,a){const l=L.find(x=>x.id===id);if(!l)return;l.balance+=a;l.deposit+=a;l.history.push({bal:l.balance,ts:Date.now()});if(l.status==="initialized")l.status="funded";lg(`${id} +${fmt(a,l.currency)}`);sv();R();toast(`${id} funded`)}
 
 function oAM(){modal={t:"am",name:"",icon:"💰",color:"#A78BFA",desc:""};R();setTimeout(()=>document.getElementById("m-name")?.focus(),60)}
 function sAM(){const n=document.getElementById("m-name").value.trim();if(!n)return toast("Name required");const id=n.toLowerCase().replace(/[^a-z0-9]/g,"-");if(M.some(m=>m.id===id))return toast("Exists");M.push({id,name:n,icon:modal.icon,color:modal.color,desc:document.getElementById("m-desc").value.trim()});lg(`Module: ${n}`);modal=null;sv();R();toast(`${n} added`)}
-function dM(id){const m=gM(id);if(!m||!confirm(`Delete "${m.name}" + all its platforms & lines?`))return;L=L.filter(l=>l.module!==id);P=P.filter(p=>p.module!==id);M=M.filter(x=>x.id!==id);if(aM===id)aM="all";lg(`Deleted module: ${m.name}`);sv();Promise.all([sb.from('tfm_lines').delete().eq('module',id),sb.from('tfm_platforms').delete().eq('module',id),sb.from('tfm_modules').delete().eq('id',id)]).catch(console.error);R();toast(`${m.name} deleted`)}
+function dM(id){const m=gM(id);if(!m||!confirm(`Delete "${m.name}" + all its platforms & lines?`))return;L=L.filter(l=>l.module!==id);P=P.filter(p=>p.module!==id);M=M.filter(x=>x.id!==id);if(aM===id)aM="all";lg(`Deleted module: ${m.name}`);sv();R();toast(`${m.name} deleted`)}
 
 function oAP(mid){const mod=mid||aM;if(mod==="all"){modal={t:"pm"};R();return}modal={t:"ap",module:mod,name:"",icon:"⭐",color:gM(mod)?.color||"#4C9EFF"};R();setTimeout(()=>document.getElementById("p-name")?.focus(),60)}
 function sAP(){const n=document.getElementById("p-name").value.trim();if(!n)return toast("Name required");if(P.some(p=>p.id===n&&p.module===modal.module))return toast("Exists");P.push({id:n,module:modal.module,icon:modal.icon,color:modal.color});lg(`Platform: ${n} → ${modal.module}`);modal=null;sv();R();toast(`${n} added`)}
-function dP(pid,mod){if(!confirm(`Delete "${pid}" + all lines?`))return;L=L.filter(l=>!(l.platform===pid&&l.module===mod));P=P.filter(p=>!(p.id===pid&&p.module===mod));lg(`Deleted: ${pid}`);sv();Promise.all([sb.from('tfm_lines').delete().eq('platform',pid).eq('module',mod),sb.from('tfm_platforms').delete().eq('id',pid).eq('module',mod)]).catch(console.error);R();toast(`${pid} deleted`)}
+function dP(pid,mod){if(!confirm(`Delete "${pid}" + all lines?`))return;L=L.filter(l=>!(l.platform===pid&&l.module===mod));P=P.filter(p=>!(p.id===pid&&p.module===mod));lg(`Deleted: ${pid}`);sv();R();toast(`${pid} deleted`)}
 
 function oAL(pid,mid){const pfx=pid.replace(/[^A-Za-z]/g,"").substring(0,3).toUpperCase();modal={t:"al",platform:pid,module:mid,id:gid(pfx+"-",L),currency:mid==="crypto"?"USDT":"INR",notes:""};R();setTimeout(()=>document.getElementById("l-id")?.focus(),60)}
 function sAL(){const id=document.getElementById("l-id").value.trim();if(!id)return toast("ID required");if(L.some(l=>l.id===id))return toast("ID exists");const ln=L.filter(l=>l.platform===modal.platform&&l.module===modal.module).length+1;L.push({id,platform:modal.platform,module:modal.module,label:`Line ${ln}`,status:"initialized",balance:0,deposit:0,currency:document.getElementById("l-cur").value,lastActive:null,notes:document.getElementById("l-notes").value.trim(),history:[]});lg(`Line: ${id} → ${modal.platform}`);modal=null;sv();R();toast(`${id} added`)}
-function dL(id){if(!confirm(`Delete ${id}?`))return;L=L.filter(l=>l.id!==id);lg(`Deleted: ${id}`);sv();sb.from('tfm_lines').delete().eq('id',id).catch(console.error);R();toast(`${id} deleted`)}
+function dL(id){if(!confirm(`Delete ${id}?`))return;L=L.filter(l=>l.id!==id);lg(`Deleted: ${id}`);sv();R();toast(`${id} deleted`)}
 
 function oEL(id){modal={t:"el",id};R();setTimeout(()=>document.getElementById("eb")?.focus(),60)}
 function sEL(){const l=L.find(x=>x.id===modal.id);l.balance=parseFloat(document.getElementById("eb").value)||0;l.deposit=parseFloat(document.getElementById("ed").value)||0;l.currency=document.getElementById("ec").value;l.notes=document.getElementById("en").value;l.history.push({bal:l.balance,ts:Date.now()});lg(`${l.id} → ${fB(l)}`);modal=null;sv();R();toast("Updated")}
@@ -261,23 +183,14 @@ function tL(){logO=!logO;R()}
 function sS(v){srch=v;R()}
 function sF(s){filt=s;R()}
 function tV(){vw=vw==="grid"?"table":"grid";R()}
-function cL(){logs=[];localStorage.setItem(SK.g,"[]");sb.from('tfm_logs').delete().gt('id',0).catch(console.error);R();toast("Cleared")}
+function cL(){logs=[];try{localStorage.setItem(SK.g,"[]");}catch{}R();toast("Cleared")}
 function sMP(k,v){modal[k]=v;R()}
 function cM(){modal=null;R()}
 
-async function resetAll(){
-  if(!confirm("⚠ FULL RESET? This will delete all data from Supabase."))return;
+function resetAll(){
+  if(!confirm("⚠ FULL RESET? This will delete all local data."))return;
   M=structuredClone(DM);P=structuredClone(DP);L=structuredClone(DL);logs=[];
-  try{
-    await Promise.all([
-      sb.from('tfm_lines').delete().neq('id',''),
-      sb.from('tfm_platforms').delete().neq('id',''),
-      sb.from('tfm_modules').delete().neq('id',''),
-      sb.from('tfm_logs').delete().gt('id',0)
-    ]);
-    await seedDefaults();
-  }catch(e){console.error('Reset error:',e)}
-  lg('RESET');sv();R();toast("RESET");
+  sv();R();toast("RESET");
 }
 
 function exp(){
@@ -292,19 +205,14 @@ function imp(){
   i.onchange=e=>{
     const f=e.target.files[0];if(!f)return;
     const r=new FileReader();
-    r.onload=async ev=>{
+    r.onload=ev=>{
       try{
         const d=JSON.parse(ev.target.result);
         if(d.modules)M=d.modules;
         if(d.platforms)P=d.platforms;
         if(d.lines){L=d.lines;L.forEach(l=>{if(!l.history)l.history=[];if(l.deposit===undefined)l.deposit=0;if(!l.currency)l.currency="INR"})}
         if(d.logs)logs=d.logs;
-        sv();
-        try{
-          await Promise.all([sb.from('tfm_lines').delete().neq('id',''),sb.from('tfm_platforms').delete().neq('id',''),sb.from('tfm_modules').delete().neq('id','')]);
-          await seedDefaults();
-        }catch(err){console.error('Import sync error:',err)}
-        lg("Import");R();toast("IMPORTED");
+        sv();lg("Import");R();toast("IMPORTED");
       }catch{toast("Error")}
     };
     r.readAsText(f);
@@ -323,17 +231,11 @@ function uC(){
 // ─── Render ───────────────────────────────────────────────────────────────────
 function R(){
   const fl=gFilt(),gd=grp(fl),ml=aM==="all"?L:L.filter(l=>l.module===aM),cb=curBk(ml),hB=cb.some(c=>c.bal>0),hD=cb.some(c=>c.dep>0),aC=ml.filter(l=>l.status==="active").length,fC=ml.filter(l=>["funded","active"].includes(l.status)).length,lC=ml.filter(l=>l.status==="locked").length;
-  const syncColor=syncSt==="ok"?"var(--green)":syncSt==="ing"?"var(--amber)":"var(--red)";
-  const syncGlow=syncSt==="ok"?"rgba(0,230,138,.4)":syncSt==="ing"?"rgba(255,185,56,.4)":"rgba(255,92,92,.4)";
-  const syncTitle=syncSt==="ok"?"Synced ✓":syncSt==="ing"?"Syncing...":"Sync error";
-
   let h=`<div class="top-bar">
     <div class="top-bar-left">
       <div><div class="logo">TFM</div><div class="logo-sub">Line Registry</div></div>
       <div class="divider-v"></div>
       <div class="clock"><div id="ck-t">--:--:--</div><div class="clock-date" id="ck-d">---</div></div>
-      <div class="divider-v"></div>
-      <div id="sync-ind" class="sync-dot" style="background:${syncColor};box-shadow:0 0 6px ${syncGlow}" title="${syncTitle}"></div>
     </div>
     <div class="top-bar-right">
       <button class="btn" onclick="imp()">↑ IMPORT</button>
@@ -495,7 +397,7 @@ function R(){
     <button class="bnav-btn" onclick="sMM()"><span class="bnav-icon">⋯</span>MORE</button>
   </div></div>`;
 
-  h+=`<div class="footer"><span>TFM v4.0 · Supabase</span><span>${L.length} LINES · ${P.length} PLATFORMS · ${M.length} MODULES</span></div>`;
+  h+=`<div class="footer"><span>TFM v4.0</span><span>${L.length} LINES · ${P.length} PLATFORMS · ${M.length} MODULES</span></div>`;
 
   document.getElementById("app").innerHTML=h;
   uC();
@@ -518,7 +420,7 @@ function sMM(){
 }
 
 // ─── Init ─────────────────────────────────────────────────────────────────────
-ld().then(()=>{R();setInterval(uC,1000);});
+ld();R();setInterval(uC,1000);
 if('serviceWorker' in navigator)navigator.serviceWorker.register('./sw.js').catch(()=>{});
 </script>
 </body>
