@@ -126,6 +126,8 @@ async function ld(){
       sb.from('tfm_logs').select('*').order('time',{ascending:false}).limit(300)
     ]);
     if(mr.error)throw mr.error;
+    if(pr.error)throw pr.error;
+    if(lr.error)throw lr.error;
     if(mr.data&&mr.data.length>0){
       M=mr.data.map(m=>({id:m.id,name:m.name,icon:m.icon||'💰',color:m.color,desc:m.description||''}));
       P=(pr.data||[]).map(p=>({id:p.id,module:p.module,icon:p.icon,color:p.color}));
@@ -144,6 +146,7 @@ async function ld(){
   }catch(e){
     console.error('Load error:',e);
     syncSt='err';
+    toast('Load error: '+(e.message||e.code||JSON.stringify(e)));
     // Fallback to localStorage
     try{M=JSON.parse(localStorage.getItem(SK.m))}catch{}
     try{P=JSON.parse(localStorage.getItem(SK.p))}catch{}
@@ -197,7 +200,9 @@ async function svAsync(){
     console.error('Sync error:',e);
     syncSt='err';
     const ind2=document.getElementById('sync-ind');
-    if(ind2){ind2.style.background='var(--red)';ind2.title='Sync error — using local cache';}
+    const errMsg=e.message||e.code||JSON.stringify(e);
+    if(ind2){ind2.style.background='var(--red)';ind2.title='Sync error: '+errMsg;}
+    toast('Sync error: '+errMsg);
   }
 }
 
