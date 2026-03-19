@@ -44,6 +44,8 @@ body::before{content:'';position:fixed;inset:0;z-index:0;pointer-events:none;bac
 .search-clear{position:absolute;right:8px;top:50%;transform:translateY(-50%);background:none;border:none;color:var(--text3);font-size:18px;cursor:pointer;padding:4px 6px;line-height:1;-webkit-tap-highlight-color:transparent}
 .search-clear:active{color:var(--text)}
 .line-btn.wd{color:var(--amber)}.line-btn.wd:active{background:rgba(255,185,56,.12);color:var(--amber)}
+.line-btn.loss{color:var(--red)}.line-btn.loss:active{background:rgba(255,92,92,.12);color:var(--red)}
+.qf-btn.qloss{color:var(--red);border-color:rgba(255,92,92,.3)}.qf-btn.qloss:active{background:rgba(255,92,92,.15);color:var(--red);transform:scale(.93)}
 .wd-stats{background:var(--surface3);border:1px solid var(--border2);border-radius:5px;padding:8px 10px;margin:6px 0;display:flex;flex-direction:column;gap:4px}
 .wd-stat-row{display:flex;justify-content:space-between;align-items:baseline;gap:6px}
 .wd-stat-l{font-size:7px;color:var(--text4);letter-spacing:1.5px;text-transform:uppercase;white-space:nowrap}
@@ -94,7 +96,7 @@ const COLORS=["#E8B931","#FF8A3D","#4C9EFF","#FFD43B","#00E68A","#A78BFA","#00D4
 const ICONS=["⚡","🎯","🏏","🎵","💰","🐾","💵","👻","🪐","🦊","⚖️","📈","💳","🏦","📱","🎲","₿","💥","🏷️","💊","📊","🔧","🎪","💎","🛡️","⭐","🔥","🌙","🏆","🚀"];
 const STS=["initialized","funded","active","paused","locked"];
 const SC={initialized:{l:"INIT",c:"#6B7280"},funded:{l:"FUNDED",c:"#4C9EFF"},active:{l:"ACTIVE",c:"#00E68A",p:1},paused:{l:"PAUSED",c:"#FFB938"},locked:{l:"LOCKED",c:"#FF5C5C"}};
-const QA=[500,1000,2000,5000,10000];
+const QA=[100,500,1000,2000,5000];
 
 // ─── State ───────────────────────────────────────────────────────────────────
 let M=[],P=[],L=[],logs=[];
@@ -161,7 +163,7 @@ function ld(){
   try{L=JSON.parse(localStorage.getItem(SK.l))||[];}catch{L=[];}
   try{logs=JSON.parse(localStorage.getItem(SK.g))||[];}catch{logs=[];}
   if(!M.length){M=structuredClone(DM);P=structuredClone(DP);L=structuredClone(DL);}
-  L.forEach(l=>{if(!l.history)l.history=[];if(l.deposit===undefined)l.deposit=0;if(!l.currency)l.currency='INR';if(!l.withdrawals)l.withdrawals=[];if(!l.transfers)l.transfers=[];});
+  L.forEach(l=>{if(!l.history)l.history=[];if(l.deposit===undefined)l.deposit=0;if(!l.currency)l.currency='INR';if(!l.withdrawals)l.withdrawals=[];if(!l.transfers)l.transfers=[];if(!l.losses)l.losses=[];});
 }
 
 function sv(){
@@ -218,7 +220,7 @@ function sAP(){const n=document.getElementById("p-name").value.trim();if(!n)retu
 function dP(pid,mod){if(!confirm(`Delete "${pid}" + all lines?`))return;L=L.filter(l=>!(l.platform===pid&&l.module===mod));P=P.filter(p=>!(p.id===pid&&p.module===mod));lg(`Deleted: ${pid}`);sv();R();toast(`${pid} deleted`)}
 
 function oAL(pid,mid){const pfx=pid.replace(/[^A-Za-z]/g,"").substring(0,3).toUpperCase();modal={t:"al",platform:pid,module:mid,id:gid(pfx+"-",L),currency:mid==="crypto"?"USDT":"INR",notes:""};R();setTimeout(()=>document.getElementById("l-id")?.focus(),60)}
-function sAL(){const id=document.getElementById("l-id").value.trim();if(!id)return toast("ID required");if(L.some(l=>l.id===id))return toast("ID exists");const ln=L.filter(l=>l.platform===modal.platform&&l.module===modal.module).length+1;L.push({id,platform:modal.platform,module:modal.module,label:`Line ${ln}`,status:"initialized",balance:0,deposit:0,currency:document.getElementById("l-cur").value,lastActive:null,notes:document.getElementById("l-notes").value.trim(),history:[],withdrawals:[],transfers:[]});lg(`Line: ${id} → ${modal.platform}`);modal=null;sv();R();toast(`${id} added`)}
+function sAL(){const id=document.getElementById("l-id").value.trim();if(!id)return toast("ID required");if(L.some(l=>l.id===id))return toast("ID exists");const ln=L.filter(l=>l.platform===modal.platform&&l.module===modal.module).length+1;L.push({id,platform:modal.platform,module:modal.module,label:`Line ${ln}`,status:"initialized",balance:0,deposit:0,currency:document.getElementById("l-cur").value,lastActive:null,notes:document.getElementById("l-notes").value.trim(),history:[],withdrawals:[],transfers:[],losses:[]});lg(`Line: ${id} → ${modal.platform}`);modal=null;sv();R();toast(`${id} added`)}
 function dL(id){if(!confirm(`Delete ${id}?`))return;L=L.filter(l=>l.id!==id);lg(`Deleted: ${id}`);sv();R();toast(`${id} deleted`)}
 
 function oEL(id){modal={t:"el",id};R();setTimeout(()=>document.getElementById("eb")?.focus(),60)}
@@ -246,6 +248,20 @@ function sWL(){
   l.history.push({bal:l.balance,ts:Date.now()});
   lg(`${l.id} WD ${fmt(a,l.currency)}`);
   modal=null;sv();R();toast(`Withdrawn ${fmt(a,l.currency)}`);
+}
+
+function gLD(l){return(l.losses||[]).reduce((s,w)=>s+w.amt,0)}
+function oLoss(id){modal={t:"ls",id};R();setTimeout(()=>document.getElementById("ls-amt")?.focus(),60)}
+function sLoss(){
+  const l=L.find(x=>x.id===modal.id);if(!l)return;
+  const a=parseFloat(document.getElementById("ls-amt").value);
+  if(!a||a<=0)return toast("Enter valid amount");
+  if(!l.losses)l.losses=[];
+  l.losses.push({amt:a,ts:Date.now()});
+  l.balance=Math.max(0,l.balance-a);
+  l.history.push({bal:l.balance,ts:Date.now()});
+  lg(`${l.id} LOSS ${fmt(a,l.currency)}`);
+  modal=null;sv();R();toast(`Loss recorded: ${fmt(a,l.currency)}`);
 }
 
 function oTF(fromId){modal={t:"tf",fromId:fromId||"",toId:""};R();setTimeout(()=>document.getElementById("tf-amt")?.focus(),60)}
@@ -291,10 +307,8 @@ function rDash(){
         <div style="font-size:8px;color:var(--text4)">${L.length} total</div>
       </div>
     </div>
-    <div class="dash-hero-stats">
-      <div class="dash-hero-stat"><span class="dash-hero-stat-l">DEPOSITED</span><span class="dash-hero-stat-v" style="color:var(--text2)">${fmt(inr.dep,'INR')}</span></div>
-      <div class="dash-hero-stat"><span class="dash-hero-stat-l">WITHDRAWN</span><span class="dash-hero-stat-v" style="color:var(--amber)">${fmt(inr.wd,'INR')}</span></div>
-      <div class="dash-hero-stat"><span class="dash-hero-stat-l">NET P&L</span><span class="dash-hero-stat-v" style="color:${inrNet>=0?'var(--green)':'var(--red)'}">${inr.dep>0?fS(inrNet,'INR'):'—'}</span></div>
+    <div class="dash-hero-stats" style="grid-template-columns:repeat(${Math.min(M.length||1,4)},1fr)">
+      ${M.map(m=>{const ml=L.filter(l=>l.module===m.id&&(l.currency||'INR')==='INR');const bal=ml.reduce((s,l)=>s+l.balance,0);return`<div class="dash-hero-stat"><span class="dash-hero-stat-l" style="color:${m.color}">${m.icon} ${m.name.substring(0,5).toUpperCase()}</span><span class="dash-hero-stat-v" style="color:${bal>0?'var(--text)':'var(--text4)'}">${fmt(bal,'INR')}</span></div>`}).join('')}
     </div>
   </div>`;
 
@@ -355,14 +369,18 @@ function rDash(){
 
   // ── Recent Activity ──
   const evts=[];
-  L.forEach(l=>{(l.withdrawals||[]).forEach(w=>evts.push({ts:w.ts,type:'wd',lid:l.id,amt:w.amt,cur:l.currency||'INR'}));(l.transfers||[]).forEach(t=>evts.push({ts:t.ts,type:t.type,lid:l.id,amt:t.amt,peer:t.peer,cur:l.currency||'INR'}))});
+  L.forEach(l=>{
+    (l.withdrawals||[]).forEach(w=>evts.push({ts:w.ts,type:'wd',lid:l.id,amt:w.amt,cur:l.currency||'INR'}));
+    (l.transfers||[]).forEach(t=>evts.push({ts:t.ts,type:t.type,lid:l.id,amt:t.amt,peer:t.peer,cur:l.currency||'INR'}));
+    (l.losses||[]).forEach(w=>evts.push({ts:w.ts,type:'loss',lid:l.id,amt:w.amt,cur:l.currency||'INR'}));
+  });
   evts.sort((a,b)=>b.ts-a.ts);
   if(evts.length){
     h+=`<div class="dash-sep">RECENT ACTIVITY</div><div class="dash-card">`;
     evts.slice(0,15).forEach((ev,i)=>{
-      const color=ev.type==='wd'?'var(--amber)':ev.type==='in'?'var(--green)':'var(--blue)';
-      const tag=ev.type==='wd'?'WD':ev.type==='in'?'IN':'OUT';
-      h+=`<div class="dash-row"><span style="font-size:8px;font-weight:700;color:${color};min-width:26px;letter-spacing:1px">${tag}</span><div style="flex:1;min-width:0"><span style="font-size:9px;color:var(--text)">${ev.lid}</span>${ev.peer?`<span style="font-size:8px;color:var(--text4)"> ↔ ${ev.peer}</span>`:''}</div><span style="font-family:'Oxanium',sans-serif;font-size:11px;font-weight:500;color:${color};flex-shrink:0">${fmt(ev.amt,ev.cur)}</span><span style="font-size:8px;color:var(--text4);min-width:42px;text-align:right;flex-shrink:0">${fD(ev.ts)}</span></div>`;
+      const color=ev.type==='wd'?'var(--amber)':ev.type==='loss'?'var(--red)':ev.type==='in'?'var(--green)':'var(--blue)';
+      const tag=ev.type==='wd'?'WD':ev.type==='loss'?'LOSS':ev.type==='in'?'IN':'OUT';
+      h+=`<div class="dash-row"><span style="font-size:8px;font-weight:700;color:${color};min-width:32px;letter-spacing:1px">${tag}</span><div style="flex:1;min-width:0"><span style="font-size:9px;color:var(--text)">${ev.lid}</span>${ev.peer?`<span style="font-size:8px;color:var(--text4)"> ↔ ${ev.peer}</span>`:''}</div><span style="font-family:'Oxanium',sans-serif;font-size:11px;font-weight:500;color:${color};flex-shrink:0">${ev.type==='loss'?'-':''}${fmt(ev.amt,ev.cur)}</span><span style="font-size:8px;color:var(--text4);min-width:42px;text-align:right;flex-shrink:0">${fD(ev.ts)}</span></div>`;
     });
     h+=`</div>`;
   }
@@ -456,7 +474,7 @@ function R(){
   M.forEach(m=>{const c=L.filter(l=>l.module===m.id).length,a=L.filter(l=>l.module===m.id&&l.status==="active").length;h+=`<div class="module-tab ${aM===m.id?"active":""}" onclick="sM('${m.id}')"><span class="module-tab-icon">${m.icon}</span><div class="module-tab-name" style="color:${aM===m.id?m.color:'var(--text2)'}">${m.name}</div><div class="module-tab-count">${c} · ${a} active</div><div class="module-tab-bar" style="background:${m.color}"></div></div>`});
   h+=`<div class="module-tab module-tab-add" onclick="oAM()"><span class="module-tab-icon" style="opacity:.5">＋</span><div class="module-tab-name" style="font-size:9px">Add</div></div></div>`;
 
-  h+=`<div class="stats-grid">
+  if(aM!=="__dash__")h+=`<div class="stats-grid">
     <div class="stat-card ${hB?'hl':''}">
       <div class="stat-label">Balance</div>
       ${cb.length===0?'<div class="stat-value" style="color:var(--text4)">₹0</div>':cb.map(c=>`<div class="stat-row"><span style="font-family:'Oxanium',sans-serif;font-size:${cb.length<=2?18:14}px;font-weight:600;color:var(--text)">${fmt(c.bal,c.cur)}</span><span class="stat-cur">${c.cur}</span></div>`).join("")}
@@ -477,20 +495,19 @@ function R(){
     </div>
   </div>`;
 
-  h+=`<div class="search-row">
+  if(aM!=="__dash__"){h+=`<div class="search-row">
     <div class="search-wrap"><span class="search-icon">⌕</span><input class="search-input" placeholder="Search lines, platforms..." value="${srch}" oninput="sS(this.value)" style="${srch?"padding-right:32px":""}">${srch?`<button class="search-clear" onclick="sS('')">×</button>`:""}</div>
     <div class="filter-chips">
       <div class="chip ${filt==="all"?"active":""}" onclick="sF('all')">ALL</div>
       ${STS.map(s=>`<div class="chip ${filt===s?"active":""}" onclick="sF('${s}')">${SC[s].l}</div>`).join("")}
     </div>
   </div>`;
-
   h+=`<div class="action-bar">
     <button class="btn btn-cyan" onclick="oAP()">+ PLATFORM</button>
     <button class="btn btn-cyan" onclick="oAM()">+ MODULE</button>
     <button class="btn" style="border-color:var(--blue);color:var(--blue)" onclick="oTF()">⇄ TRANSFER</button>
     ${aM!=="all"&&aM!=="__dash__"?`<button class="btn btn-danger btn-sm" onclick="dM('${aM}')">🗑 ${gM(aM)?.name||""}</button>`:""}
-  </div>`;
+  </div>`;}
 
   if(aM==="__dash__"){h+=rDash();}
   else if(vw==="grid"){
@@ -531,13 +548,16 @@ function R(){
           ${l.notes?`<div class="line-notes">${l.notes}</div>`:""}
           ${(()=>{const wds=l.withdrawals||[];if(!wds.length)return'';const tot=wds.reduce((s,w)=>s+w.amt,0);const net=l.balance+tot-l.deposit;const first=wds[0],last=wds[wds.length-1];return`<div class="wd-stats"><div class="wd-stat-row"><span class="wd-stat-l">FIRST WD</span><span class="wd-stat-r">${fD(first.ts)} · ${fmt(first.amt,l.currency)}</span></div><div class="wd-stat-row"><span class="wd-stat-l">TOTAL WD</span><span class="wd-stat-r" style="color:var(--amber)">${fmt(tot,l.currency)}</span></div><div class="wd-stat-row"><span class="wd-stat-l">NET ACCRUED</span><span class="wd-stat-r" style="color:${net>=0?'var(--green)':'var(--red)'}">${fS(net,l.currency)}</span></div><div class="wd-stat-row"><span class="wd-stat-l">LAST WD</span><span class="wd-stat-r">${fD(last.ts)} · ${fmt(last.amt,l.currency)}</span></div></div>`;})()}
           ${(()=>{const tfs=l.transfers||[];if(!tfs.length)return'';const tIn=tfs.filter(t=>t.type==='in').reduce((s,t)=>s+t.amt,0);const tOut=tfs.filter(t=>t.type==='out').reduce((s,t)=>s+t.amt,0);const last=tfs[tfs.length-1];return`<div class="tf-compact"><span class="tf-tag">⇄ TX</span>${tIn>0?`<span>↓ ${fmt(tIn,l.currency)}</span>`:''}${tOut>0?`<span>↑ ${fmt(tOut,l.currency)}</span>`:''}${last?`<span style="color:var(--text4)">${last.type==='in'?'from':'to'} ${last.peer}</span>`:''}${tfs.length>1?`<span style="margin-left:auto">${tfs.length}×</span>`:''}</div>`;})()}
+          ${(()=>{const ls=l.losses||[];if(!ls.length)return'';const tot=gLD(l);const last=ls[ls.length-1];return`<div class="wd-stats" style="border-color:rgba(255,92,92,.2)"><div class="wd-stat-row"><span class="wd-stat-l">TOTAL LOSS</span><span class="wd-stat-r" style="color:var(--red)">${fmt(tot,l.currency)}</span></div><div class="wd-stat-row"><span class="wd-stat-l">LAST LOSS</span><span class="wd-stat-r">${fD(last.ts)} · ${fmt(last.amt,l.currency)}</span></div></div>`;})()}
           <div class="quick-fund">
             ${QA.map(a=>`<button class="qf-btn" onclick="event.stopPropagation();qf('${l.id}',${a})">+${a>=1000?(a/1000)+"K":a}</button>`).join("")}
+            <button class="qf-btn qloss" onclick="event.stopPropagation();oLoss('${l.id}')">- LOSS</button>
           </div>
           <div class="line-footer">
             <span class="line-last">${l.lastActive?fD(l.lastActive):"Never"}</span>
             <div style="display:flex;gap:2px">
               ${l.balance>0?`<button class="line-btn wd" onclick="event.stopPropagation();oWL('${l.id}')">WDRAW</button><button class="line-btn" style="color:var(--blue)" onclick="event.stopPropagation();oTF('${l.id}')">TX</button>`:''}
+              <button class="line-btn loss" onclick="event.stopPropagation();oLoss('${l.id}')">LOSS</button>
               <button class="line-btn" onclick="event.stopPropagation();oEL('${l.id}')">EDIT</button>
               <button class="line-btn del" onclick="event.stopPropagation();dL('${l.id}')">DEL</button>
             </div>
@@ -595,6 +615,7 @@ function R(){
     if(modal.t==="al")h+=`<div class="modal-title"><div class="modal-title-dot" style="background:${gP(modal.platform)?.color||"#888"}"></div>ADD LINE → ${modal.platform}</div><div class="modal-field"><label class="modal-label">Line ID</label><input id="l-id" class="modal-input" value="${modal.id}" onkeydown="if(event.key==='Enter')sAL()"></div><div class="modal-row"><div class="modal-field"><label class="modal-label">Currency</label><select id="l-cur" class="modal-input sm">${["INR","USDT","SOL","ETH","BTC","USD"].map(c=>`<option ${c===modal.currency?"selected":""}>${c}</option>`).join("")}</select></div><div class="modal-field"><label class="modal-label">Notes</label><input id="l-notes" class="modal-input sm" placeholder="Optional..." value="${modal.notes}"></div></div><div class="modal-actions"><button class="btn btn-green" onclick="sAL()">ADD LINE</button><button class="btn" onclick="cM()">CANCEL</button></div>`;
     if(modal.t==="el"){const l=L.find(x=>x.id===modal.id),pl=gP(l.platform);h+=`<div class="modal-title"><div class="modal-title-dot" style="background:${pl?.color||"#888"}"></div>EDIT → ${l.id}</div><div class="modal-field"><label class="modal-label">Balance</label><input type="number" id="eb" class="modal-input" value="${l.balance}" step="any" onkeydown="if(event.key==='Enter')sEL()"></div><div class="modal-row"><div class="modal-field"><label class="modal-label">Deposited</label><input type="number" id="ed" class="modal-input" value="${l.deposit}" step="any"><div class="modal-hint">For P&amp;L calculation</div></div><div class="modal-field"><label class="modal-label">Currency</label><select id="ec" class="modal-input sm">${["INR","USDT","SOL","ETH","BTC","USD"].map(c=>`<option ${c===l.currency?"selected":""}>${c}</option>`).join("")}</select></div></div><div class="modal-field"><label class="modal-label">Notes</label><input id="en" class="modal-input sm" value="${l.notes}" placeholder="Notes..." onkeydown="if(event.key==='Enter')sEL()"></div><div class="modal-actions"><button class="btn btn-green" onclick="sEL()">SAVE</button><button class="btn" onclick="cM()">CANCEL</button></div>`}
     if(modal.t==="wl"){const l=L.find(x=>x.id===modal.id),pl=gP(l.platform);const wds=l.withdrawals||[];const tot=wds.reduce((s,w)=>s+w.amt,0);const net=l.balance+tot-l.deposit;const pn=net;h+=`<div class="modal-title"><div class="modal-title-dot" style="background:var(--amber)"></div>WITHDRAW → ${l.id}</div><div class="wd-info-grid"><div class="wd-info-cell"><div class="wd-info-label">BALANCE</div><div class="wd-info-val">${fB(l)}</div></div><div class="wd-info-cell"><div class="wd-info-label">P&amp;L</div><div class="wd-info-val" style="color:${pn>=0?'var(--green)':'var(--red)'}">${l.deposit>0?fS(pn,l.currency):'—'}</div></div>${tot>0?`<div class="wd-info-cell"><div class="wd-info-label">TOTAL WD</div><div class="wd-info-val" style="color:var(--amber)">${fmt(tot,l.currency)}</div></div><div class="wd-info-cell"><div class="wd-info-label">NET ACCRUED</div><div class="wd-info-val" style="color:${net>=0?'var(--green)':'var(--red)'}">${fS(net,l.currency)}</div></div>`:''}</div><div class="modal-field"><label class="modal-label">Amount to Withdraw</label><input type="number" id="wd-amt" class="modal-input" placeholder="0" step="any" onkeydown="if(event.key==='Enter')sWL()"></div><div class="modal-hint" style="margin-top:-10px;margin-bottom:14px">Max: ${fB(l)} · ${wds.length} prior withdrawal${wds.length!==1?'s':''}</div><div class="modal-actions"><button class="btn" style="background:var(--amber);border-color:var(--amber);color:#000;font-weight:700" onclick="sWL()">CONFIRM</button><button class="btn" onclick="cM()">CANCEL</button></div>`}
+    if(modal.t==="ls"){const l=L.find(x=>x.id===modal.id),pl=gP(l.platform);const ls=l.losses||[];const tot=gLD(l);const net=gPnL(l);h+=`<div class="modal-title"><div class="modal-title-dot" style="background:var(--red)"></div>RECORD LOSS → ${l.id}</div><div class="wd-info-grid"><div class="wd-info-cell"><div class="wd-info-label">BALANCE</div><div class="wd-info-val">${fB(l)}</div></div><div class="wd-info-cell"><div class="wd-info-label">P&amp;L</div><div class="wd-info-val" style="color:${net>=0?'var(--green)':'var(--red)'}">${l.deposit>0?fS(net,l.currency):'—'}</div></div>${tot>0?`<div class="wd-info-cell"><div class="wd-info-label">TOTAL LOST</div><div class="wd-info-val" style="color:var(--red)">${fmt(tot,l.currency)}</div></div><div class="wd-info-cell"><div class="wd-info-label">LOSS COUNT</div><div class="wd-info-val">${ls.length}×</div></div>`:''}</div><div class="modal-field"><label class="modal-label">Loss Amount</label><input type="number" id="ls-amt" class="modal-input" placeholder="0" step="any" onkeydown="if(event.key==='Enter')sLoss()"></div><div class="modal-hint" style="margin-top:-10px;margin-bottom:14px;color:var(--red)">Balance will decrease by this amount</div><div class="modal-actions"><button class="btn" style="background:var(--red);border-color:var(--red);color:#fff;font-weight:700" onclick="sLoss()">RECORD LOSS</button><button class="btn" onclick="cM()">CANCEL</button></div>`}
     if(modal.t==="tf"){const fromL=modal.fromId?L.find(x=>x.id===modal.fromId):null;h+=`<div class="modal-title"><div class="modal-title-dot" style="background:var(--blue)"></div>TRANSFER BETWEEN LINES</div><div class="modal-field"><label class="modal-label">From Line</label><select id="tf-from" class="modal-input" onchange="sMP('fromId',this.value)"><option value="">Select source...</option>${L.filter(l=>l.balance>0).map(l=>`<option value="${l.id}" ${modal.fromId===l.id?'selected':''}>${l.id} · ${fB(l)} · ${l.platform}</option>`).join('')}</select></div><div class="modal-field"><label class="modal-label">To Line</label><select id="tf-to" class="modal-input" onchange="sMP('toId',this.value)"><option value="">Select destination...</option>${L.filter(l=>l.id!==modal.fromId).map(l=>`<option value="${l.id}" ${modal.toId===l.id?'selected':''}>${l.id} · ${fB(l)} · ${l.platform}</option>`).join('')}</select></div><div class="modal-field"><label class="modal-label">Amount${fromL?` (Max: ${fB(fromL)})`:''}</label><input type="number" id="tf-amt" class="modal-input" placeholder="0" step="any" onkeydown="if(event.key==='Enter')sTF()"></div><div class="modal-actions"><button class="btn" style="background:var(--blue);border-color:var(--blue);color:#fff;font-weight:700" onclick="sTF()">TRANSFER</button><button class="btn" onclick="cM()">CANCEL</button></div>`}
     h+=`</div></div>`;
   }
