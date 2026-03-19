@@ -60,8 +60,22 @@ body::before{content:'';position:fixed;inset:0;z-index:0;pointer-events:none;bac
 .dash-row+.dash-row{border-top:1px solid var(--bg2)}
 .mod-bar-wrap{display:flex;flex-direction:column;gap:5px}
 .mod-bar-card{background:var(--surface);border:1px solid var(--border);border-radius:7px;padding:11px 14px}
+@keyframes count-up{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:translateY(0)}}
+.dash-hero{background:linear-gradient(135deg,var(--surface) 0%,rgba(0,212,255,.04) 100%);border:1px solid var(--border2);border-radius:14px;padding:20px 20px 16px;margin-bottom:12px;position:relative;overflow:hidden}
+.dash-hero::before{content:'';position:absolute;top:-60px;right:-60px;width:200px;height:200px;border-radius:50%;background:radial-gradient(circle,rgba(0,212,255,.07) 0%,transparent 70%);pointer-events:none}
+.dash-hero-label{font-size:8px;color:var(--text3);letter-spacing:3px;text-transform:uppercase;margin-bottom:6px}
+.dash-hero-value{font-family:'Oxanium',sans-serif;font-size:40px;font-weight:700;color:var(--text);line-height:1.1;animation:count-up .35s ease;margin-bottom:2px}
+.dash-hero-pnl{font-family:'Oxanium',sans-serif;font-size:15px;font-weight:600;margin-bottom:16px}
+.dash-hero-stats{display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;border-top:1px solid var(--border);padding-top:12px}
+.dash-hero-stat{display:flex;flex-direction:column;gap:2px}
+.dash-hero-stat-l{font-size:7px;color:var(--text4);letter-spacing:1.5px;text-transform:uppercase}
+.dash-hero-stat-v{font-family:'Oxanium',sans-serif;font-size:13px;font-weight:600}
+.dash-period{display:flex;gap:4px;margin-bottom:8px}
+.dash-period-btn{font-family:'IBM Plex Mono',monospace;font-size:9px;padding:7px 14px;border-radius:5px;cursor:pointer;border:1px solid var(--border);background:var(--surface);color:var(--text3);transition:all .15s;letter-spacing:1px;text-transform:uppercase;-webkit-tap-highlight-color:transparent}
+.dash-period-btn:active{transform:scale(.95)}.dash-period-btn.active{border-color:var(--cyan);color:var(--cyan);background:rgba(0,212,255,.08)}
+.dash-profit-box{background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:12px 14px;margin-bottom:14px;display:flex;justify-content:space-between;align-items:center}
 .platform-bar{border-left-width:3px !important}
-@media(max-width:480px){.bottom-nav{display:block}.top-bar-right{display:none}}@media(hover:none){.line-card:active{transform:scale(.98);background:var(--surface2)}.platform-bar:active{background:var(--surface2)}}@media(display-mode:standalone){body{padding-top:env(safe-area-inset-top,0px)}}
+@media(max-width:480px){.bottom-nav{display:block}.top-bar-right{display:none}.module-tabs{display:none}}@media(hover:none){.line-card:active{transform:scale(.98);background:var(--surface2)}.platform-bar:active{background:var(--surface2)}}@media(display-mode:standalone){body{padding-top:env(safe-area-inset-top,0px)}}
 </style>
 </head>
 <body>
@@ -84,7 +98,7 @@ const QA=[500,1000,2000,5000,10000];
 
 // ─── State ───────────────────────────────────────────────────────────────────
 let M=[],P=[],L=[],logs=[];
-let aM="all",vw="grid",srch="",filt="all",modal=null,toastT=null,col={},logO=false;
+let aM="__dash__",vw="grid",srch="",filt="all",modal=null,toastT=null,col={},logO=false,dashP="all";
 
 // ─── Default Data ────────────────────────────────────────────────────────────
 const DM=[
@@ -182,7 +196,11 @@ function gFilt(){
   if(filt!=="all")r=r.filter(l=>l.status===filt);
   return r;
 }
-function curBk(ls){const b={};ls.forEach(l=>{const c=l.currency||"INR";if(!b[c])b[c]={bal:0,dep:0};b[c].bal+=l.balance;b[c].dep+=l.deposit});return Object.keys(b).sort((a,x)=>a==="INR"?-1:x==="INR"?1:a.localeCompare(x)).map(c=>({cur:c,...b[c],pnl:b[c].bal-b[c].dep}))}
+function gWD(l){return(l.withdrawals||[]).reduce((s,w)=>s+w.amt,0)}
+function gPnL(l){return l.balance+gWD(l)-l.deposit}
+function getPeriodWd(currency,period){const d=new Date();let cut=0;if(period==='day')cut=new Date(d.getFullYear(),d.getMonth(),d.getDate()).getTime();else if(period==='week'){const dy=d.getDay();cut=new Date(d.getFullYear(),d.getMonth(),d.getDate()-dy).getTime();}else if(period==='month')cut=new Date(d.getFullYear(),d.getMonth(),1).getTime();return L.filter(l=>(l.currency||'INR')===currency).reduce((s,l)=>s+(l.withdrawals||[]).filter(w=>w.ts>=cut).reduce((ss,w)=>ss+w.amt,0),0)}
+function sPeriod(p){dashP=p;R()}
+function curBk(ls){const b={};ls.forEach(l=>{const c=l.currency||"INR";if(!b[c])b[c]={bal:0,dep:0,wd:0};b[c].bal+=l.balance;b[c].dep+=l.deposit;b[c].wd+=gWD(l)});return Object.keys(b).sort((a,x)=>a==="INR"?-1:x==="INR"?1:a.localeCompare(x)).map(c=>({cur:c,...b[c],pnl:b[c].bal+b[c].wd-b[c].dep}))}
 function grp(ls){const g={};ls.forEach(l=>{if(!g[l.platform])g[l.platform]=[];g[l.platform].push(l)});return g}
 function spk(h,c){if(!h||h.length<2)return"";const v=h.slice(-12).map(x=>x.bal),mx=Math.max(...v,1);return`<div class="line-mini-spark">${v.map((x,i)=>`<div class="mini-bar" style="height:${Math.max(2,(x/mx)*18)}px;background:${c};opacity:${i===v.length-1?.9:.25+(i/v.length)*.35}"></div>`).join("")}</div>`}
 function stB(l){const s=SC[l.status];return`<button onclick="event.stopPropagation();cyc('${l.id}')" class="status-badge ${s.p?'pulse':''}" style="background:${s.c}15;border-color:${s.c}40;color:${s.c}">${s.l}</button>`}
@@ -252,66 +270,115 @@ function sTF(){
 // ─── Dashboard ────────────────────────────────────────────────────────────────
 function rDash(){
   let h='';
-  // ── Per-currency stats ──
+  // ── Portfolio totals ──
   const cs={};
-  L.forEach(l=>{const c=l.currency||'INR';if(!cs[c])cs[c]={bal:0,dep:0,wd:0};cs[c].bal+=l.balance;cs[c].dep+=l.deposit;cs[c].wd+=(l.withdrawals||[]).reduce((s,w)=>s+w.amt,0)});
-  // ── Portfolio Summary ──
-  h+=`<div class="dash-sep">PORTFOLIO SUMMARY</div>`;
-  h+=`<div class="stats-grid" style="grid-template-columns:repeat(auto-fit,minmax(120px,1fr))">`;
-  Object.keys(cs).sort((a,b)=>a==='INR'?-1:b==='INR'?1:0).forEach(c=>{
-    const v=cs[c],net=v.bal+v.wd-v.dep,roi=v.dep>0?((net/v.dep)*100).toFixed(1):null;
-    h+=`<div class="stat-card ${v.bal>0?'hl':''}"><div class="stat-label">VALUE · ${c}</div><div style="font-family:'Oxanium',sans-serif;font-size:17px;font-weight:600">${fmt(v.bal,c)}</div>${roi!==null?`<div class="stat-sub">ROI: <span style="color:${net>=0?'var(--green)':'var(--red)'}">${net>=0?'+':''}${roi}%</span></div>`:'<div class="stat-sub" style="color:var(--text4)">No deposit</div>'}</div>`;
-  });
-  const totalWd=L.reduce((s,l)=>{const c=l.currency||'INR';return c==='INR'?s+(l.withdrawals||[]).reduce((ss,w)=>ss+w.amt,0):s},0);
-  if(totalWd>0){const inr=cs['INR']||{bal:0,dep:0,wd:0};const na=inr.bal+totalWd-inr.dep;h+=`<div class="stat-card"><div class="stat-label">WITHDRAWN (INR)</div><div style="font-family:'Oxanium',sans-serif;font-size:17px;font-weight:600;color:var(--amber)">${fmt(totalWd,'INR')}</div><div class="stat-sub">Accrued: <span style="color:${na>=0?'var(--green)':'var(--red)'}">${fS(na,'INR')}</span></div></div>`;}
-  const tfCount=L.reduce((s,l)=>s+(l.transfers||[]).filter(t=>t.type==='out').length,0);
-  if(tfCount>0)h+=`<div class="stat-card"><div class="stat-label">TRANSFERS</div><div style="font-family:'Oxanium',sans-serif;font-size:17px;font-weight:600;color:var(--blue)">${tfCount}×</div><div class="stat-sub">${L.filter(l=>(l.transfers||[]).length>0).length} lines</div></div>`;
-  h+=`</div>`;
+  L.forEach(l=>{const c=l.currency||'INR';if(!cs[c])cs[c]={bal:0,dep:0,wd:0};cs[c].bal+=l.balance;cs[c].dep+=l.deposit;cs[c].wd+=gWD(l)});
+  const inr=cs['INR']||{bal:0,dep:0,wd:0};
+  const inrNet=inr.bal+inr.wd-inr.dep;
+  const inrROI=inr.dep>0?((inrNet/inr.dep)*100).toFixed(1):null;
+
+  // ── Hero ──
+  h+=`<div class="dash-hero">
+    <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:14px">
+      <div>
+        <div class="dash-hero-label">PORTFOLIO VALUE</div>
+        <div class="dash-hero-value">${fmt(inr.bal,'INR')}</div>
+        ${inrROI!==null?`<div class="dash-hero-pnl" style="color:${inrNet>=0?'var(--green)':'var(--red)'}">${fS(inrNet,'INR')} (${inrNet>=0?'+':''}${inrROI}%)</div>`:'<div style="font-size:11px;color:var(--text4);margin-bottom:2px">No deposits tracked yet</div>'}
+      </div>
+      <div style="text-align:right;padding-top:4px">
+        <div style="font-size:7px;color:var(--text4);letter-spacing:1.5px;margin-bottom:3px">ACTIVE</div>
+        <div style="font-family:'Oxanium',sans-serif;font-size:28px;font-weight:700;color:var(--green);line-height:1">${L.filter(l=>l.status==='active').length}</div>
+        <div style="font-size:8px;color:var(--text4)">${L.length} total</div>
+      </div>
+    </div>
+    <div class="dash-hero-stats">
+      <div class="dash-hero-stat"><span class="dash-hero-stat-l">DEPOSITED</span><span class="dash-hero-stat-v" style="color:var(--text2)">${fmt(inr.dep,'INR')}</span></div>
+      <div class="dash-hero-stat"><span class="dash-hero-stat-l">WITHDRAWN</span><span class="dash-hero-stat-v" style="color:var(--amber)">${fmt(inr.wd,'INR')}</span></div>
+      <div class="dash-hero-stat"><span class="dash-hero-stat-l">NET P&L</span><span class="dash-hero-stat-v" style="color:${inrNet>=0?'var(--green)':'var(--red)'}">${inr.dep>0?fS(inrNet,'INR'):'—'}</span></div>
+    </div>
+  </div>`;
+
+  // ── Period Profit ──
+  const periodWd=getPeriodWd('INR',dashP);
+  const periodLabel=dashP==='day'?'TODAY':dashP==='week'?'THIS WEEK':dashP==='month'?'THIS MONTH':'ALL TIME';
+  h+=`<div class="dash-period">
+    ${[['day','TODAY'],['week','WEEK'],['month','MONTH'],['all','ALL']].map(([p,l])=>`<button class="dash-period-btn ${dashP===p?'active':''}" onclick="sPeriod('${p}')">${l}</button>`).join('')}
+  </div>
+  <div class="dash-profit-box">
+    <div>
+      <div style="font-size:7px;color:var(--text3);letter-spacing:2px;text-transform:uppercase;margin-bottom:4px">REALIZED PROFIT · ${periodLabel}</div>
+      <div style="font-family:'Oxanium',sans-serif;font-size:22px;font-weight:700;color:${periodWd>0?'var(--amber)':'var(--text4)'}">${fmt(periodWd,'INR')}</div>
+    </div>
+    <div style="font-size:${periodWd>0?'28':'20'}px">${periodWd>0?'💸':'—'}</div>
+  </div>`;
+
+  // ── Other currencies ──
+  const otherC=Object.keys(cs).filter(c=>c!=='INR'&&(cs[c].bal>0||cs[c].wd>0));
+  if(otherC.length){
+    h+=`<div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:14px">`;
+    otherC.forEach(c=>{const v=cs[c];const net=v.bal+v.wd-v.dep;const roi=v.dep>0?((net/v.dep)*100).toFixed(1):null;h+=`<div class="stat-card" style="flex:1;min-width:110px"><div class="stat-label">${c}</div><div style="font-family:'Oxanium',sans-serif;font-size:15px;font-weight:600">${fmt(v.bal,c)}</div>${roi!==null?`<div class="stat-sub"><span style="color:${net>=0?'var(--green)':'var(--red)'}">${net>=0?'+':''}${roi}%</span></div>`:''}</div>`});
+    h+=`</div>`;
+  }
+
   // ── Module Breakdown ──
   if(M.length){
     h+=`<div class="dash-sep">MODULE BREAKDOWN</div><div class="mod-bar-wrap">`;
     M.forEach(m=>{
       const ml=L.filter(l=>l.module===m.id);if(!ml.length)return;
       const il=ml.filter(l=>(l.currency||'INR')==='INR');
-      const bal=il.reduce((s,l)=>s+l.balance,0),dep=il.reduce((s,l)=>s+l.deposit,0);
-      const wd=il.reduce((s,l)=>s+(l.withdrawals||[]).reduce((ss,w)=>ss+w.amt,0),0);
+      const bal=il.reduce((s,l)=>s+l.balance,0),dep=il.reduce((s,l)=>s+l.deposit,0),wd=il.reduce((s,l)=>s+gWD(l),0);
       const net=bal+wd-dep,roi=dep>0?((net/dep)*100).toFixed(1):null;
       const active=ml.filter(l=>l.status==='active').length,pct=dep>0?Math.min(100,Math.max(0,(bal/dep)*100)):0;
-      h+=`<div class="mod-bar-card" style="border-left:3px solid ${m.color}"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:7px"><div style="display:flex;align-items:center;gap:8px"><span style="font-size:15px">${m.icon}</span><span style="font-family:'Oxanium',sans-serif;font-size:12px;font-weight:600;color:${m.color}">${m.name}</span><span style="font-size:8px;color:var(--text4)">${ml.length}L · ${active} active</span></div><div style="text-align:right">${roi!==null?`<div style="font-family:'Oxanium',sans-serif;font-size:12px;font-weight:600;color:${net>=0?'var(--green)':'var(--red)'}">${net>=0?'+':''}${roi}%</div><div style="font-size:8px;color:var(--text4)">${fS(net,'INR')}</div>`:''}</div></div><div style="display:grid;grid-template-columns:1fr 1fr${wd>0?' 1fr':''};gap:4px;font-size:8px;margin-bottom:6px"><div><span style="color:var(--text4)">BAL </span><span style="color:var(--text)">${fmt(bal,'INR')}</span></div><div><span style="color:var(--text4)">DEP </span><span style="color:var(--text3)">${fmt(dep,'INR')}</span></div>${wd>0?`<div><span style="color:var(--text4)">WD </span><span style="color:var(--amber)">${fmt(wd,'INR')}</span></div>`:''}</div><div style="height:3px;background:var(--surface3);border-radius:2px;overflow:hidden"><div style="height:100%;width:${pct}%;background:${m.color};border-radius:2px"></div></div></div>`;
+      h+=`<div class="mod-bar-card" style="border-left:3px solid ${m.color}">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:7px">
+          <div style="display:flex;align-items:center;gap:8px"><span style="font-size:15px">${m.icon}</span><span style="font-family:'Oxanium',sans-serif;font-size:12px;font-weight:600;color:${m.color}">${m.name}</span><span style="font-size:8px;color:var(--text4)">${ml.length}L · ${active} active</span></div>
+          <div style="text-align:right">${roi!==null?`<div style="font-family:'Oxanium',sans-serif;font-size:13px;font-weight:700;color:${net>=0?'var(--green)':'var(--red)'}">${net>=0?'+':''}${roi}%</div><div style="font-size:8px;color:var(--text4)">${fS(net,'INR')}</div>`:''}</div>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr${wd>0?' 1fr':''};gap:4px;font-size:8px;margin-bottom:7px">
+          <div><span style="color:var(--text4)">BAL </span><span style="color:var(--text)">${fmt(bal,'INR')}</span></div>
+          <div><span style="color:var(--text4)">DEP </span><span style="color:var(--text3)">${fmt(dep,'INR')}</span></div>
+          ${wd>0?`<div><span style="color:var(--text4)">WD </span><span style="color:var(--amber)">${fmt(wd,'INR')}</span></div>`:''}
+        </div>
+        <div style="height:4px;background:var(--surface3);border-radius:2px;overflow:hidden"><div style="height:100%;width:${pct}%;background:${m.color};border-radius:2px;transition:width .5s ease"></div></div>
+      </div>`;
     });
     h+=`</div>`;
   }
+
   // ── Top Performers ──
-  const ranked=L.filter(l=>l.deposit>0&&(l.currency||'INR')==='INR').map(l=>{const wd=(l.withdrawals||[]).reduce((s,w)=>s+w.amt,0);const net=l.balance+wd-l.deposit;return{...l,_net:net,_roi:(net/l.deposit)*100}}).sort((a,b)=>b._roi-a._roi).slice(0,5);
+  const ranked=L.filter(l=>l.deposit>0&&(l.currency||'INR')==='INR').map(l=>({...l,_pnl:gPnL(l),_roi:(gPnL(l)/l.deposit)*100})).sort((a,b)=>b._roi-a._roi).slice(0,5);
   if(ranked.length){
     h+=`<div class="dash-sep">TOP PERFORMERS</div><div class="dash-card">`;
-    ranked.forEach((l,i)=>{const pl=gP(l.platform);h+=`<div class="dash-row"><span style="font-family:'Oxanium',sans-serif;font-size:10px;color:var(--text4);min-width:14px">${i+1}</span><span style="font-size:14px">${pl?.icon||'•'}</span><div style="flex:1;min-width:0"><div style="font-size:10px;color:var(--text)">${l.id}</div><div style="font-size:8px;color:var(--text4);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${l.platform}</div></div><div style="text-align:right;flex-shrink:0"><div style="font-family:'Oxanium',sans-serif;font-size:12px;font-weight:600;color:${l._net>=0?'var(--green)':'var(--red)'}">${fS(l._net,l.currency)}</div><div style="font-size:9px;color:${l._roi>=0?'var(--green)':'var(--red)'}">${l._roi>=0?'+':''}${l._roi.toFixed(1)}%</div></div></div>`});
+    ranked.forEach((l,i)=>{const pl=gP(l.platform);h+=`<div class="dash-row"><span style="font-family:'Oxanium',sans-serif;font-size:10px;color:var(--text4);min-width:16px">${i+1}</span><span style="font-size:16px">${pl?.icon||'•'}</span><div style="flex:1;min-width:0"><div style="font-size:10px;color:var(--text)">${l.id}</div><div style="font-size:8px;color:var(--text4);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${l.platform}</div></div><div style="text-align:right;flex-shrink:0"><div style="font-family:'Oxanium',sans-serif;font-size:12px;font-weight:600;color:${l._pnl>=0?'var(--green)':'var(--red)'}">${fS(l._pnl,l.currency)}</div><div style="font-size:9px;color:${l._roi>=0?'var(--green)':'var(--red)'}">${l._roi>=0?'+':''}${l._roi.toFixed(1)}%</div></div></div>`});
     h+=`</div>`;
   }
+
   // ── Recent Activity ──
   const evts=[];
   L.forEach(l=>{(l.withdrawals||[]).forEach(w=>evts.push({ts:w.ts,type:'wd',lid:l.id,amt:w.amt,cur:l.currency||'INR'}));(l.transfers||[]).forEach(t=>evts.push({ts:t.ts,type:t.type,lid:l.id,amt:t.amt,peer:t.peer,cur:l.currency||'INR'}))});
   evts.sort((a,b)=>b.ts-a.ts);
-  const recent=evts.slice(0,20);
-  if(recent.length){
+  if(evts.length){
     h+=`<div class="dash-sep">RECENT ACTIVITY</div><div class="dash-card">`;
-    recent.forEach((ev,i)=>{
+    evts.slice(0,15).forEach((ev,i)=>{
       const color=ev.type==='wd'?'var(--amber)':ev.type==='in'?'var(--green)':'var(--blue)';
       const tag=ev.type==='wd'?'WD':ev.type==='in'?'IN':'OUT';
       h+=`<div class="dash-row"><span style="font-size:8px;font-weight:700;color:${color};min-width:26px;letter-spacing:1px">${tag}</span><div style="flex:1;min-width:0"><span style="font-size:9px;color:var(--text)">${ev.lid}</span>${ev.peer?`<span style="font-size:8px;color:var(--text4)"> ↔ ${ev.peer}</span>`:''}</div><span style="font-family:'Oxanium',sans-serif;font-size:11px;font-weight:500;color:${color};flex-shrink:0">${fmt(ev.amt,ev.cur)}</span><span style="font-size:8px;color:var(--text4);min-width:42px;text-align:right;flex-shrink:0">${fD(ev.ts)}</span></div>`;
     });
     h+=`</div>`;
   }
-  // ── Platform Summary ──
-  h+=`<div class="dash-sep">PLATFORM SUMMARY</div><div style="display:flex;flex-direction:column;gap:4px">`;
-  P.forEach(pl=>{
-    const pls=L.filter(l=>l.platform===pl.id&&l.module===pl.module);if(!pls.length)return;
-    const bal=pls.reduce((s,l)=>s+l.balance,0),wd=pls.reduce((s,l)=>s+(l.withdrawals||[]).reduce((ss,w)=>ss+w.amt,0),0),active=pls.filter(l=>l.status==='active').length;
-    if(!bal&&!wd&&!active)return;
-    const c=pls[0].currency||'INR';
-    h+=`<div style="display:flex;align-items:center;gap:10px;padding:9px 14px;background:var(--surface);border:1px solid var(--border);border-left:3px solid ${pl.color};border-radius:7px"><span style="font-size:14px">${pl.icon}</span><div style="flex:1;min-width:0"><div style="font-family:'Oxanium',sans-serif;font-size:11px;font-weight:600;color:${pl.color}">${pl.id}</div><div style="font-size:8px;color:var(--text4)">${pls.length} lines · ${active} active</div></div><div style="text-align:right;font-size:9px">${bal>0?`<div style="font-family:'Oxanium',sans-serif;font-size:12px;color:var(--text)">${fmt(bal,c)}</div>`:'<div style="color:var(--text4)">—</div>'}${wd>0?`<div style="color:var(--amber)">WD: ${fmt(wd,c)}</div>`:''}</div></div>`;
-  });
-  h+=`</div>`;
+
+  // ── Active Platforms (only those with data) ──
+  const activePl=P.filter(pl=>{const pls=L.filter(l=>l.platform===pl.id&&l.module===pl.module);return pls.some(l=>l.balance>0||gWD(l)>0||l.status==='active')});
+  if(activePl.length){
+    h+=`<div class="dash-sep">PLATFORMS</div><div style="display:flex;flex-direction:column;gap:4px">`;
+    activePl.forEach(pl=>{
+      const pls=L.filter(l=>l.platform===pl.id&&l.module===pl.module);
+      const bal=pls.reduce((s,l)=>s+l.balance,0),wd=pls.reduce((s,l)=>s+gWD(l),0),active=pls.filter(l=>l.status==='active').length;
+      const c=pls[0]?.currency||'INR';
+      h+=`<div style="display:flex;align-items:center;gap:10px;padding:9px 14px;background:var(--surface);border:1px solid var(--border);border-left:3px solid ${pl.color};border-radius:7px;cursor:pointer" onclick="sM('${pl.module}')"><span style="font-size:14px">${pl.icon}</span><div style="flex:1;min-width:0"><div style="font-family:'Oxanium',sans-serif;font-size:11px;font-weight:600;color:${pl.color}">${pl.id}</div><div style="font-size:8px;color:var(--text4)">${pls.length}L · ${active} active</div></div><div style="text-align:right;font-size:9px;flex-shrink:0">${bal>0?`<div style="font-family:'Oxanium',sans-serif;font-size:12px;color:var(--text)">${fmt(bal,c)}</div>`:'<div style="color:var(--text4)">—</div>'}${wd>0?`<div style="color:var(--amber)">WD: ${fmt(wd,c)}</div>`:''}</div></div>`;
+    });
+    h+=`</div>`;
+  }
   return h;
 }
 
@@ -374,14 +441,19 @@ function R(){
   </div>`;
 
   h+=`<div class="module-tabs">
+    <div class="module-tab ${aM==="__dash__"?"active":""}" onclick="sM('__dash__')">
+      <span class="module-tab-icon">📊</span>
+      <div class="module-tab-name" style="color:${aM==="__dash__"?'var(--cyan)':'var(--text2)'}">DASH</div>
+      <div class="module-tab-count">analytics</div>
+      <div class="module-tab-bar" style="background:var(--cyan)"></div>
+    </div>
     <div class="module-tab ${aM==="all"?"active":""}" onclick="sM('all')">
       <span class="module-tab-icon">🗂️</span>
-      <div class="module-tab-name">All</div>
+      <div class="module-tab-name">ALL</div>
       <div class="module-tab-count">${L.length} lines</div>
       <div class="module-tab-bar" style="background:var(--cyan)"></div>
     </div>`;
   M.forEach(m=>{const c=L.filter(l=>l.module===m.id).length,a=L.filter(l=>l.module===m.id&&l.status==="active").length;h+=`<div class="module-tab ${aM===m.id?"active":""}" onclick="sM('${m.id}')"><span class="module-tab-icon">${m.icon}</span><div class="module-tab-name" style="color:${aM===m.id?m.color:'var(--text2)'}">${m.name}</div><div class="module-tab-count">${c} · ${a} active</div><div class="module-tab-bar" style="background:${m.color}"></div></div>`});
-  h+=`<div class="module-tab ${aM==="__dash__"?"active":""}" onclick="sM('__dash__')" style="min-width:68px"><span class="module-tab-icon">📊</span><div class="module-tab-name" style="color:${aM==="__dash__"?'var(--cyan)':'var(--text2)'}">DASH</div><div class="module-tab-count">analytics</div><div class="module-tab-bar" style="background:var(--cyan)"></div></div>`;
   h+=`<div class="module-tab module-tab-add" onclick="oAM()"><span class="module-tab-icon" style="opacity:.5">＋</span><div class="module-tab-name" style="font-size:9px">Add</div></div></div>`;
 
   h+=`<div class="stats-grid">
@@ -444,7 +516,7 @@ function R(){
         </div>
         <div class="cards-grid ${ic?'collapsed':'expanded'}">`;
       if(pL)pL.forEach((l,i)=>{
-        const s=SC[l.status],pn=l.balance-l.deposit,pc=pn>0?"profit":pn<0?"loss":"zero";
+        const s=SC[l.status],pn=gPnL(l),pc=pn>0?"profit":pn<0?"loss":"zero";
         h+=`<div class="line-card ${l.status==="active"?"glow":""}" style="animation-delay:${i*30}ms;${l.status==="active"?"border-color:"+pl.color+"44":""}">
           <div class="module-badge" style="background:${mc?.color||"#888"}18;color:${mc?.color||"#888"}">${l.currency}</div>
           <div class="line-card-top">
@@ -488,7 +560,7 @@ function R(){
       </tr></thead>
       <tbody>`;
     for(const l of fl){
-      const pl=gP(l.platform),pn=l.balance-l.deposit;
+      const pl=gP(l.platform),pn=gPnL(l);
       h+=`<tr style="border-bottom:1px solid var(--bg2)">
         <td style="padding:9px 12px;color:var(--text3)">${l.id}</td>
         <td style="padding:9px 12px;color:${pl?.color||"#888"}">${pl?.icon||""} ${l.platform}</td>
@@ -522,14 +594,15 @@ function R(){
     if(modal.t==="pm")h+=`<div class="modal-title">SELECT MODULE</div>${M.map(m=>`<div style="padding:14px;margin-bottom:6px;background:var(--surface3);border:1px solid var(--border);border-radius:7px;cursor:pointer;display:flex;align-items:center;gap:10px" onclick="modal={t:'ap',module:'${m.id}',name:'',icon:'⭐',color:'${m.color}'};R()"><span style="font-size:22px">${m.icon}</span><div><div style="font-family:'Oxanium',sans-serif;font-size:12px;font-weight:600;color:${m.color}">${m.name}</div><div style="font-size:9px;color:var(--text4)">${m.desc}</div></div></div>`).join("")}<div class="modal-actions"><button class="btn" onclick="cM()">CANCEL</button></div>`;
     if(modal.t==="al")h+=`<div class="modal-title"><div class="modal-title-dot" style="background:${gP(modal.platform)?.color||"#888"}"></div>ADD LINE → ${modal.platform}</div><div class="modal-field"><label class="modal-label">Line ID</label><input id="l-id" class="modal-input" value="${modal.id}" onkeydown="if(event.key==='Enter')sAL()"></div><div class="modal-row"><div class="modal-field"><label class="modal-label">Currency</label><select id="l-cur" class="modal-input sm">${["INR","USDT","SOL","ETH","BTC","USD"].map(c=>`<option ${c===modal.currency?"selected":""}>${c}</option>`).join("")}</select></div><div class="modal-field"><label class="modal-label">Notes</label><input id="l-notes" class="modal-input sm" placeholder="Optional..." value="${modal.notes}"></div></div><div class="modal-actions"><button class="btn btn-green" onclick="sAL()">ADD LINE</button><button class="btn" onclick="cM()">CANCEL</button></div>`;
     if(modal.t==="el"){const l=L.find(x=>x.id===modal.id),pl=gP(l.platform);h+=`<div class="modal-title"><div class="modal-title-dot" style="background:${pl?.color||"#888"}"></div>EDIT → ${l.id}</div><div class="modal-field"><label class="modal-label">Balance</label><input type="number" id="eb" class="modal-input" value="${l.balance}" step="any" onkeydown="if(event.key==='Enter')sEL()"></div><div class="modal-row"><div class="modal-field"><label class="modal-label">Deposited</label><input type="number" id="ed" class="modal-input" value="${l.deposit}" step="any"><div class="modal-hint">For P&amp;L calculation</div></div><div class="modal-field"><label class="modal-label">Currency</label><select id="ec" class="modal-input sm">${["INR","USDT","SOL","ETH","BTC","USD"].map(c=>`<option ${c===l.currency?"selected":""}>${c}</option>`).join("")}</select></div></div><div class="modal-field"><label class="modal-label">Notes</label><input id="en" class="modal-input sm" value="${l.notes}" placeholder="Notes..." onkeydown="if(event.key==='Enter')sEL()"></div><div class="modal-actions"><button class="btn btn-green" onclick="sEL()">SAVE</button><button class="btn" onclick="cM()">CANCEL</button></div>`}
-    if(modal.t==="wl"){const l=L.find(x=>x.id===modal.id),pl=gP(l.platform);const pn=l.balance-l.deposit;const wds=l.withdrawals||[];const tot=wds.reduce((s,w)=>s+w.amt,0);const net=l.balance+tot-l.deposit;h+=`<div class="modal-title"><div class="modal-title-dot" style="background:var(--amber)"></div>WITHDRAW → ${l.id}</div><div class="wd-info-grid"><div class="wd-info-cell"><div class="wd-info-label">BALANCE</div><div class="wd-info-val">${fB(l)}</div></div><div class="wd-info-cell"><div class="wd-info-label">P&amp;L</div><div class="wd-info-val" style="color:${pn>=0?'var(--green)':'var(--red)'}">${l.deposit>0?fS(pn,l.currency):'—'}</div></div>${tot>0?`<div class="wd-info-cell"><div class="wd-info-label">TOTAL WD</div><div class="wd-info-val" style="color:var(--amber)">${fmt(tot,l.currency)}</div></div><div class="wd-info-cell"><div class="wd-info-label">NET ACCRUED</div><div class="wd-info-val" style="color:${net>=0?'var(--green)':'var(--red)'}">${fS(net,l.currency)}</div></div>`:''}</div><div class="modal-field"><label class="modal-label">Amount to Withdraw</label><input type="number" id="wd-amt" class="modal-input" placeholder="0" step="any" onkeydown="if(event.key==='Enter')sWL()"></div><div class="modal-hint" style="margin-top:-10px;margin-bottom:14px">Max: ${fB(l)} · ${wds.length} prior withdrawal${wds.length!==1?'s':''}</div><div class="modal-actions"><button class="btn" style="background:var(--amber);border-color:var(--amber);color:#000;font-weight:700" onclick="sWL()">CONFIRM</button><button class="btn" onclick="cM()">CANCEL</button></div>`}
+    if(modal.t==="wl"){const l=L.find(x=>x.id===modal.id),pl=gP(l.platform);const wds=l.withdrawals||[];const tot=wds.reduce((s,w)=>s+w.amt,0);const net=l.balance+tot-l.deposit;const pn=net;h+=`<div class="modal-title"><div class="modal-title-dot" style="background:var(--amber)"></div>WITHDRAW → ${l.id}</div><div class="wd-info-grid"><div class="wd-info-cell"><div class="wd-info-label">BALANCE</div><div class="wd-info-val">${fB(l)}</div></div><div class="wd-info-cell"><div class="wd-info-label">P&amp;L</div><div class="wd-info-val" style="color:${pn>=0?'var(--green)':'var(--red)'}">${l.deposit>0?fS(pn,l.currency):'—'}</div></div>${tot>0?`<div class="wd-info-cell"><div class="wd-info-label">TOTAL WD</div><div class="wd-info-val" style="color:var(--amber)">${fmt(tot,l.currency)}</div></div><div class="wd-info-cell"><div class="wd-info-label">NET ACCRUED</div><div class="wd-info-val" style="color:${net>=0?'var(--green)':'var(--red)'}">${fS(net,l.currency)}</div></div>`:''}</div><div class="modal-field"><label class="modal-label">Amount to Withdraw</label><input type="number" id="wd-amt" class="modal-input" placeholder="0" step="any" onkeydown="if(event.key==='Enter')sWL()"></div><div class="modal-hint" style="margin-top:-10px;margin-bottom:14px">Max: ${fB(l)} · ${wds.length} prior withdrawal${wds.length!==1?'s':''}</div><div class="modal-actions"><button class="btn" style="background:var(--amber);border-color:var(--amber);color:#000;font-weight:700" onclick="sWL()">CONFIRM</button><button class="btn" onclick="cM()">CANCEL</button></div>`}
     if(modal.t==="tf"){const fromL=modal.fromId?L.find(x=>x.id===modal.fromId):null;h+=`<div class="modal-title"><div class="modal-title-dot" style="background:var(--blue)"></div>TRANSFER BETWEEN LINES</div><div class="modal-field"><label class="modal-label">From Line</label><select id="tf-from" class="modal-input" onchange="sMP('fromId',this.value)"><option value="">Select source...</option>${L.filter(l=>l.balance>0).map(l=>`<option value="${l.id}" ${modal.fromId===l.id?'selected':''}>${l.id} · ${fB(l)} · ${l.platform}</option>`).join('')}</select></div><div class="modal-field"><label class="modal-label">To Line</label><select id="tf-to" class="modal-input" onchange="sMP('toId',this.value)"><option value="">Select destination...</option>${L.filter(l=>l.id!==modal.fromId).map(l=>`<option value="${l.id}" ${modal.toId===l.id?'selected':''}>${l.id} · ${fB(l)} · ${l.platform}</option>`).join('')}</select></div><div class="modal-field"><label class="modal-label">Amount${fromL?` (Max: ${fB(fromL)})`:''}</label><input type="number" id="tf-amt" class="modal-input" placeholder="0" step="any" onkeydown="if(event.key==='Enter')sTF()"></div><div class="modal-actions"><button class="btn" style="background:var(--blue);border-color:var(--blue);color:#fff;font-weight:700" onclick="sTF()">TRANSFER</button><button class="btn" onclick="cM()">CANCEL</button></div>`}
     h+=`</div></div>`;
   }
 
   h+=`<div class="bottom-nav"><div class="bottom-nav-inner">
+    <button class="bnav-btn ${aM==="__dash__"?"active":""}" onclick="sM('__dash__')"><span class="bnav-icon">📊</span>DASH</button>
     <button class="bnav-btn ${aM==="all"?"active":""}" onclick="sM('all')"><span class="bnav-icon">🗂️</span>ALL</button>
-    ${M.slice(0,4).map(m=>`<button class="bnav-btn ${aM===m.id?"active":""}" onclick="sM('${m.id}')"><span class="bnav-icon">${m.icon}</span>${m.name.substring(0,4).toUpperCase()}</button>`).join("")}
+    ${M.slice(0,3).map(m=>`<button class="bnav-btn ${aM===m.id?"active":""}" onclick="sM('${m.id}')"><span class="bnav-icon">${m.icon}</span>${m.name.substring(0,4).toUpperCase()}</button>`).join("")}
     <button class="bnav-btn" onclick="sMM()"><span class="bnav-icon">⋯</span>MORE</button>
   </div></div>`;
 
