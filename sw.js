@@ -1,4 +1,4 @@
-const CACHE = 'tfm-v4-2';
+const CACHE = 'tfm-v4-3';
 const ASSETS = [
   './',
   './index.html',
@@ -23,10 +23,16 @@ self.addEventListener('activate', e => {
 });
 
 self.addEventListener('fetch', e => {
-  // Navigation: always try to serve index.html
+  // Navigation: network-first so PWA always gets latest on next open
   if (e.request.mode === 'navigate') {
     e.respondWith(
-      caches.match('./index.html').then(c => c || fetch(e.request))
+      fetch(e.request)
+        .then(res => {
+          const clone = res.clone();
+          caches.open(CACHE).then(c => c.put('./index.html', clone));
+          return res;
+        })
+        .catch(() => caches.match('./index.html'))
     );
     return;
   }
