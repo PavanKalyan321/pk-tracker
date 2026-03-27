@@ -101,22 +101,67 @@ const QA=[100,500,1000,2000,5000];
 const EXPENSE_CATS=[{id:'food',name:'Food',icon:'🍔',color:'#FF8A3D'},{id:'transport',name:'Travel',icon:'🚗',color:'#4C9EFF'},{id:'shopping',name:'Shopping',icon:'🛍️',color:'#F472B6'},{id:'entertainment',name:'Fun',icon:'🎮',color:'#A78BFA'},{id:'bills',name:'Bills',icon:'⚡',color:'#FFB938'},{id:'health',name:'Health',icon:'💊',color:'#00E68A'},{id:'other',name:'Other',icon:'📦',color:'#6B7280'}];
 const EXP_QA=[50,100,200,500,1000];
 
+// ─── V5 Categories & Strategies ──────────────────────────────────────────────
+const CATS=[
+  {id:"fast",name:"Fast",modules:["betting"],color:"#EF4444",target:20,desc:"Generate cash"},
+  {id:"growth",name:"Growth",modules:["crypto","stocks","forex","index"],color:"#F59E0B",target:40,desc:"Grow capital"},
+  {id:"storage",name:"Storage",modules:["sip","gold","bonds","commodities"],color:"#10B981",target:25,desc:"Preserve wealth"},
+  {id:"cash",name:"Cash / Arb",modules:["arbitrage"],color:"#06B6D4",target:10,desc:"Low risk income"},
+  {id:"experimental",name:"Experimental",modules:["business"],color:"#8B5CF6",target:5,desc:"New opportunities"},
+  {id:"macro",name:"Macro / Track",modules:["macro","currency","country","cds"],color:"#EC4899",target:0,desc:"Guide allocation"}
+];
+const MACRO_LINES=[
+  {mod:"currency",items:["USD/INR","EUR/USD","GBP/USD","USD/JPY","USD/CNY","Gold/USD","Oil/USD","BTC/USD"]},
+  {mod:"country",items:["India","USA","China","Argentina","Pakistan","Turkey","Europe","Japan"]},
+  {mod:"macro",items:["Fed Rate","RBI Rate","US Inflation","India CPI","Global Liquidity","US 10Y Yield","VIX","DXY Index"]},
+  {mod:"cds",items:["India CDS","Argentina CDS","Turkey CDS","Pakistan CDS","China CDS","Brazil CDS"]},
+  {mod:"index",items:["Nifty 50","Sensex","S&P 500","Nasdaq","Bank Nifty","Dow Jones","FTSE 100","Nikkei 225"]},
+  {mod:"commodities",items:["Crude Oil","Gold","Silver","Copper","Natural Gas","Lithium","Wheat","Iron Ore"]}
+];
+const STRATS=[
+  {id:"compounding",name:"Compounding",icon:"📈",keywords:["compounding","sip","holding","staking"]},
+  {id:"sprint",name:"Sprint / Burst",icon:"⚡",keywords:["sprint","teen patti","high-risk","roulette"]},
+  {id:"bot",name:"Automated Bot",icon:"🤖",keywords:["bot","aviator","crash","automated"]},
+  {id:"arb",name:"Arbitrage",icon:"🔄",keywords:["arb","arbitrage","matched"]},
+  {id:"holding",name:"Long Hold",icon:"🏦",keywords:["large cap","mid cap","small cap","dividend","gold","government","treasury","long-term"]},
+  {id:"trading",name:"Active Trading",icon:"📊",keywords:["trading","futures","options","index","swing","scalping","forex","usd","eur","gbp","carry"]},
+  {id:"passive",name:"Passive Income",icon:"🤝",keywords:["airdrops","liquidity","stablecoin","debt fund","hybrid","p2p","interest"]},
+  {id:"tracking",name:"Tracking Only",icon:"🗺️",keywords:["economy","global","opec","tracker"]}
+];
+function gCat(modId){return CATS.find(c=>c.modules.includes(modId))||{id:"?",name:"?",color:"#555",target:0}}
+function gStrat(l){const lb=(l.label||"").toLowerCase()+(l.notes||"").toLowerCase()+(l.id||"").toLowerCase();return STRATS.find(s=>s.keywords.some(k=>lb.includes(k)))||null}
+
 // ─── State ───────────────────────────────────────────────────────────────────
 let M=[],P=[],L=[],logs=[],expenses=[],customExpCats=[];
-let aM="__dash__",vw="grid",srch="",filt="all",modal=null,toastT=null,col={},logO=false,dashP="all";
+let aM="__dash__",vw="grid",srch="",filt="all",modal=null,toastT=null,col={},logO=false,dashP="all",catFilt=null,sortBy="default";
+let calcTab='compound';
 
 // ─── Default Data ────────────────────────────────────────────────────────────
 const DM=[
-  {id:"betting",name:"Betting",icon:"🎲",color:"#FFB938",desc:"Cricket & Sports"},
+  {id:"betting",name:"Betting",icon:"🎲",color:"#FFB938",desc:"Cricket, Sports, Casino, Crash"},
   {id:"crypto",name:"Crypto",icon:"₿",color:"#A78BFA",desc:"Wallets & Exchanges"},
-  {id:"stocks",name:"Stocks",icon:"📈",color:"#4C9EFF",desc:"Trading & Demat"}
+  {id:"stocks",name:"Stocks",icon:"📈",color:"#4C9EFF",desc:"Trading & Demat"},
+  {id:"sip",name:"SIP / MF / ETF",icon:"💰",color:"#10B981",desc:"Systematic Investments"},
+  {id:"gold",name:"Commodities",icon:"🪙",color:"#D4A017",desc:"Gold, Silver, Oil, Metals"},
+  {id:"bonds",name:"Bonds / Debt",icon:"⭐",color:"#6B7280",desc:"FD, Gov Bonds, P2P"},
+  {id:"forex",name:"Forex",icon:"📱",color:"#3B82F6",desc:"Currency Pairs"},
+  {id:"macro",name:"Macro",icon:"🌍",color:"#8B5CF6",desc:"Economy Tracking"},
+  {id:"arbitrage",name:"Arbitrage",icon:"🔄",color:"#14B8A6",desc:"Cross-platform Arb"},
+  {id:"business",name:"Business",icon:"💼",color:"#F59E0B",desc:"Freelance, Projects"}
 ];
 const DP=[
+  // Betting
   {id:"FunInExchange",module:"betting",icon:"⚡",color:"#E8B931"},
   {id:"Dafabet",module:"betting",icon:"🎯",color:"#FF8A3D"},
   {id:"IPLWin",module:"betting",icon:"🏏",color:"#4C9EFF"},
   {id:"Parimatch",module:"betting",icon:"🎵",color:"#FFD43B"},
   {id:"Fun88",module:"betting",icon:"💰",color:"#00E68A"},
+  {id:"Stake",module:"betting",icon:"💰",color:"#1A9FFF"},
+  {id:"Betway",module:"betting",icon:"🎮",color:"#00A826"},
+  {id:"1xBet",module:"betting",icon:"🎵",color:"#1E6FCF"},
+  {id:"Bet365",module:"betting",icon:"🎮",color:"#027B5B"},
+  {id:"Aviator",module:"betting",icon:"✈️",color:"#FF4444"},
+  // Crypto
   {id:"Wallabi",module:"crypto",icon:"🐾",color:"#A78BFA"},
   {id:"Bitget",module:"crypto",icon:"💵",color:"#00D4FF"},
   {id:"MEXC",module:"crypto",icon:"☁️",color:"#3B82F6"},
@@ -125,32 +170,154 @@ const DP=[
   {id:"MetaMask",module:"crypto",icon:"🦊",color:"#F6851B"},
   {id:"Binance",module:"crypto",icon:"⚖️",color:"#F0B90B"},
   {id:"CoinDCX",module:"crypto",icon:"📈",color:"#3772FF"},
+  {id:"WazirX",module:"crypto",icon:"💎",color:"#4E5DE3"},
+  {id:"Bybit",module:"crypto",icon:"🏷️",color:"#F7A600"},
+  // Stocks
   {id:"Paytm Money",module:"stocks",icon:"💳",color:"#00BAF2"},
   {id:"ICICI Direct",module:"stocks",icon:"🏦",color:"#F58220"},
-  {id:"Groww",module:"stocks",icon:"📱",color:"#5DCA41"}
+  {id:"Groww",module:"stocks",icon:"📱",color:"#5DCA41"},
+  {id:"Zerodha",module:"stocks",icon:"📊",color:"#387ED1"},
+  {id:"Upstox",module:"stocks",icon:"🚀",color:"#6C3EC6"},
+  {id:"INDmoney",module:"stocks",icon:"🌍",color:"#00C48C"},
+  // SIP
+  {id:"PhonePe",module:"sip",icon:"⭐",color:"#5F259F"},
+  {id:"Groww MF",module:"sip",icon:"🎯",color:"#5DCA41"},
+  {id:"Kuvera",module:"sip",icon:"🔄",color:"#2C3E50"},
+  {id:"Coin Zerodha",module:"sip",icon:"🪙",color:"#387ED1"},
+  // Commodities
+  {id:"PhonePe Gold",module:"gold",icon:"💥",color:"#D4A017"},
+  {id:"MCX",module:"gold",icon:"🏦",color:"#C0392B"},
+  {id:"HDFC Securities",module:"gold",icon:"🏷️",color:"#004C8F"},
+  // Bonds
+  {id:"RBI Retail",module:"bonds",icon:"🇮🇳",color:"#FF9933"},
+  {id:"Wint Wealth",module:"bonds",icon:"🔄",color:"#1E3A5F"},
+  {id:"LenDenClub",module:"bonds",icon:"🤝",color:"#FF6B6B"},
+  // Forex
+  {id:"OctaFX",module:"forex",icon:"📱",color:"#0088CC"},
+  {id:"Exness",module:"forex",icon:"🌍",color:"#FFAA00"},
+  {id:"XM",module:"forex",icon:"📊",color:"#C4161C"},
+  // Macro
+  {id:"TradingView",module:"macro",icon:"📺",color:"#131722"},
+  {id:"Investing.com",module:"macro",icon:"🌍",color:"#0B6623"},
+  // Arbitrage
+  {id:"Arb Manual",module:"arbitrage",icon:"🔄",color:"#14B8A6"},
+  {id:"P2P Arb",module:"arbitrage",icon:"🔄",color:"#8B5CF6"},
+  // Business
+  {id:"Freelance",module:"business",icon:"💻",color:"#F59E0B"},
+  {id:"Side Project",module:"business",icon:"🛠️",color:"#EF4444"}
 ];
+const _dl=(id,p,m,lb,cur)=>({id,platform:p,module:m,label:lb,status:"initialized",balance:0,deposit:0,currency:cur||"INR",lastActive:null,notes:"",history:[],withdrawals:[],transfers:[],losses:[]});
 const DL=[
-  {id:"FIE-001",platform:"FunInExchange",module:"betting",label:"Line 1",status:"initialized",balance:0,deposit:0,currency:"INR",lastActive:null,notes:"",history:[]},
-  {id:"FIE-002",platform:"FunInExchange",module:"betting",label:"Line 2",status:"initialized",balance:0,deposit:0,currency:"INR",lastActive:null,notes:"",history:[]},
-  {id:"FIE-003",platform:"FunInExchange",module:"betting",label:"Line 3",status:"initialized",balance:0,deposit:0,currency:"INR",lastActive:null,notes:"",history:[]},
-  {id:"DAF-001",platform:"Dafabet",module:"betting",label:"Line 1",status:"initialized",balance:0,deposit:0,currency:"INR",lastActive:null,notes:"",history:[]},
-  {id:"DAF-002",platform:"Dafabet",module:"betting",label:"Line 2",status:"initialized",balance:0,deposit:0,currency:"INR",lastActive:null,notes:"",history:[]},
-  {id:"IPL-001",platform:"IPLWin",module:"betting",label:"Line 1",status:"initialized",balance:0,deposit:0,currency:"INR",lastActive:null,notes:"",history:[]},
-  {id:"PMT-001",platform:"Parimatch",module:"betting",label:"Line 1",status:"initialized",balance:0,deposit:0,currency:"INR",lastActive:null,notes:"",history:[]},
-  {id:"PMT-002",platform:"Parimatch",module:"betting",label:"Line 2",status:"initialized",balance:0,deposit:0,currency:"INR",lastActive:null,notes:"",history:[]},
-  {id:"PMT-003",platform:"Parimatch",module:"betting",label:"Line 3",status:"initialized",balance:0,deposit:0,currency:"INR",lastActive:null,notes:"",history:[]},
-  {id:"F88-001",platform:"Fun88",module:"betting",label:"Line 1",status:"initialized",balance:0,deposit:0,currency:"INR",lastActive:null,notes:"",history:[]},
-  {id:"WLB-001",platform:"Wallabi",module:"crypto",label:"Line 1",status:"initialized",balance:0,deposit:0,currency:"USDT",lastActive:null,notes:"",history:[]},
-  {id:"BGT-001",platform:"Bitget",module:"crypto",label:"Line 1",status:"initialized",balance:0,deposit:0,currency:"USDT",lastActive:null,notes:"",history:[]},
-  {id:"MXC-001",platform:"MEXC",module:"crypto",label:"Line 1",status:"initialized",balance:0,deposit:0,currency:"USDT",lastActive:null,notes:"",history:[]},
-  {id:"PHT-001",platform:"Phantom",module:"crypto",label:"Line 1",status:"initialized",balance:0,deposit:0,currency:"SOL",lastActive:null,notes:"",history:[]},
-  {id:"JUP-001",platform:"Jupiter",module:"crypto",label:"Line 1",status:"initialized",balance:0,deposit:0,currency:"SOL",lastActive:null,notes:"",history:[]},
-  {id:"MMK-001",platform:"MetaMask",module:"crypto",label:"Line 1",status:"initialized",balance:0,deposit:0,currency:"ETH",lastActive:null,notes:"",history:[]},
-  {id:"BNC-001",platform:"Binance",module:"crypto",label:"Line 1",status:"initialized",balance:0,deposit:0,currency:"USDT",lastActive:null,notes:"",history:[]},
-  {id:"CDX-001",platform:"CoinDCX",module:"crypto",label:"Line 1",status:"initialized",balance:0,deposit:0,currency:"INR",lastActive:null,notes:"",history:[]},
-  {id:"PTM-001",platform:"Paytm Money",module:"stocks",label:"Line 1",status:"initialized",balance:0,deposit:0,currency:"INR",lastActive:null,notes:"",history:[]},
-  {id:"ICI-001",platform:"ICICI Direct",module:"stocks",label:"Line 1",status:"initialized",balance:0,deposit:0,currency:"INR",lastActive:null,notes:"",history:[]},
-  {id:"GRW-001",platform:"Groww",module:"stocks",label:"Line 1",status:"initialized",balance:0,deposit:0,currency:"INR",lastActive:null,notes:"",history:[]}
+  // Betting
+  _dl("L01-CKT","FunInExchange","betting","Cricket betting"),
+  _dl("L02-CKT","Dafabet","betting","Cricket combo/parlay"),
+  _dl("L03-CKT","Stake","betting","Cricket compounding"),
+  _dl("L04-FBL","Bet365","betting","Football betting"),
+  _dl("L05-TNS","Betway","betting","Tennis betting"),
+  _dl("L06-LIV","Parimatch","betting","Live in-play"),
+  _dl("L07-ARB","FunInExchange","betting","Arbitrage odds"),
+  _dl("L08-EXC","FunInExchange","betting","Exchange back/lay"),
+  _dl("L09-AVI","Aviator","betting","Aviator crash bot"),
+  _dl("L10-CRH","Stake","betting","Crash JetX/LuckyJet"),
+  _dl("L11-TP","Fun88","betting","Teen Patti sprint"),
+  _dl("L12-CSN","Dafabet","betting","Lightning Roulette"),
+  _dl("L13-MBT","IPLWin","betting","Matched betting"),
+  _dl("L14-ODM","1xBet","betting","Odds scalping"),
+  _dl("L15-TRN","Parimatch","betting","Tournament specials"),
+  _dl("L16-PLS","Stake","betting","Player stats betting"),
+  _dl("L17-BOT","Aviator","betting","Crash bot #2"),
+  _dl("L18-HRK","Fun88","betting","High-risk casino"),
+  _dl("L19-LRK","Betway","betting","Low-risk grind"),
+  _dl("L20-EXP","1xBet","betting","Experimental betting"),
+  // Crypto
+  _dl("L21-BTC","Binance","crypto","Bitcoin holding","USDT"),
+  _dl("L22-ETH","MetaMask","crypto","Ethereum holding","ETH"),
+  _dl("L23-SOL","Phantom","crypto","Solana holding","SOL"),
+  _dl("L24-TRD","Binance","crypto","Spot trading","USDT"),
+  _dl("L25-FUT","Bitget","crypto","Futures trading","USDT"),
+  _dl("L26-ARB","MEXC","crypto","Crypto arbitrage","USDT"),
+  _dl("L27-AIR","Wallabi","crypto","Airdrops farming","USDT"),
+  _dl("L28-STK","Binance","crypto","Staking rewards","USDT"),
+  _dl("L29-LP","Jupiter","crypto","Liquidity providing","SOL"),
+  _dl("L30-MEM","Phantom","crypto","Meme coin trading","SOL"),
+  _dl("L31-AI","Bitget","crypto","AI crypto projects","USDT"),
+  _dl("L32-MIN","CoinDCX","crypto","Mining"),
+  _dl("L33-LPD","Bybit","crypto","Launchpad","USDT"),
+  _dl("L34-NFT","MetaMask","crypto","NFT line","ETH"),
+  _dl("L35-STB","WazirX","crypto","Stablecoin interest"),
+  // Stocks
+  _dl("L36-ILC","Groww","stocks","Indian large cap"),
+  _dl("L37-IMC","Zerodha","stocks","Indian mid cap"),
+  _dl("L38-ISC","Upstox","stocks","Indian small cap"),
+  _dl("L39-USS","INDmoney","stocks","US stocks","USD"),
+  _dl("L40-DIV","ICICI Direct","stocks","Dividend stocks"),
+  _dl("L41-GRO","Groww","stocks","Growth stocks"),
+  _dl("L42-BNK","Zerodha","stocks","Banking stocks"),
+  _dl("L43-ITS","Paytm Money","stocks","IT stocks"),
+  _dl("L44-PHR","ICICI Direct","stocks","Pharma stocks"),
+  _dl("L45-NRG","Zerodha","stocks","Energy stocks"),
+  _dl("L46-IDX","Zerodha","stocks","Index trading"),
+  _dl("L47-SWG","Upstox","stocks","Swing trading"),
+  _dl("L48-LTH","Groww","stocks","Long-term holding"),
+  _dl("L49-OPT","Zerodha","stocks","Options trading"),
+  _dl("L50-ETF","INDmoney","stocks","ETF stocks"),
+  // SIP/MF/ETF
+  _dl("L51-NSP","Groww MF","sip","Nifty 50 SIP"),
+  _dl("L52-SSP","PhonePe","sip","Sensex SIP"),
+  _dl("L53-USP","INDmoney","sip","US ETF SIP","USD"),
+  _dl("L54-GET","Coin Zerodha","sip","Gold ETF"),
+  _dl("L55-DBT","Kuvera","sip","Debt fund"),
+  _dl("L56-HYB","Groww MF","sip","Hybrid fund"),
+  _dl("L57-INT","Kuvera","sip","International fund"),
+  _dl("L58-SEC","Coin Zerodha","sip","Sector fund"),
+  _dl("L59-SCS","Groww MF","sip","Small cap SIP"),
+  _dl("L60-RET","PhonePe","sip","Retirement SIP"),
+  // Commodities
+  _dl("L61-PGD","PhonePe Gold","gold","Physical gold"),
+  _dl("L62-DGD","PhonePe Gold","gold","Digital gold"),
+  _dl("L63-SLV","PhonePe Gold","gold","Silver"),
+  _dl("L64-OIL","MCX","gold","Crude oil"),
+  _dl("L65-COP","MCX","gold","Copper"),
+  _dl("L66-AGR","MCX","gold","Agriculture"),
+  _dl("L67-LTH","MCX","gold","Lithium / EV metals"),
+  _dl("L68-RRE","HDFC Securities","gold","Rare earth metals"),
+  _dl("L69-CET","Coin Zerodha","gold","Commodity ETF"),
+  _dl("L70-CTD","MCX","gold","Commodity trading"),
+  // Bonds/Debt
+  _dl("L71-GOV","RBI Retail","bonds","Government bonds"),
+  _dl("L72-CRP","Wint Wealth","bonds","Corporate bonds"),
+  _dl("L73-FD","ICICI Direct","bonds","Fixed deposits"),
+  _dl("L74-P2P","LenDenClub","bonds","P2P lending"),
+  _dl("L75-TBL","RBI Retail","bonds","Treasury bills"),
+  // Forex
+  _dl("L76-UIN","OctaFX","forex","USD/INR"),
+  _dl("L77-EUS","Exness","forex","EUR/USD","USD"),
+  _dl("L78-UJP","XM","forex","USD/JPY","USD"),
+  _dl("L79-GUS","Exness","forex","GBP/USD","USD"),
+  _dl("L80-UCN","OctaFX","forex","USD/CNY"),
+  _dl("L81-GAU","XM","forex","Gold/USD XAUUSD","USD"),
+  _dl("L82-OLU","OctaFX","forex","Oil/USD"),
+  _dl("L83-BTU","Exness","forex","Bitcoin/USD","USD"),
+  _dl("L84-EMC","XM","forex","Emerging currencies"),
+  _dl("L85-CRY","Exness","forex","Carry trade"),
+  // Macro
+  _dl("L86-USA","TradingView","macro","USA economy"),
+  _dl("L87-CHN","TradingView","macro","China economy"),
+  _dl("L88-IND","TradingView","macro","India growth"),
+  _dl("L89-OIL","Investing.com","macro","Oil countries OPEC"),
+  _dl("L90-GLB","Investing.com","macro","Global liquidity"),
+  // Arbitrage
+  _dl("L91-OAR","Arb Manual","arbitrage","Odds arb"),
+  _dl("L92-CAR","P2P Arb","arbitrage","Crypto P2P arb"),
+  _dl("L93-FAR","Arb Manual","arbitrage","Forex arb"),
+  _dl("L94-SAR","Arb Manual","arbitrage","Stock arb"),
+  _dl("L95-MAR","P2P Arb","arbitrage","Matched deposit arb"),
+  // Business
+  _dl("L96-FRE","Freelance","business","Frontend freelance"),
+  _dl("L97-BOT","Side Project","business","Bot sales/service"),
+  _dl("L98-CON","Freelance","business","Consulting"),
+  _dl("L99-AFF","Side Project","business","Affiliate referrals"),
+  _dl("L100-EXP","Side Project","business","Experimental venture")
 ];
 
 // ─── PWA Install ─────────────────────────────────────────────────────────────
@@ -168,6 +335,12 @@ function ld(){
   try{expenses=JSON.parse(localStorage.getItem(SK.e))||[];}catch{expenses=[];}
   try{customExpCats=JSON.parse(localStorage.getItem(SK.ec))||[];}catch{customExpCats=[];}
   if(!M.length){M=structuredClone(DM);P=structuredClone(DP);L=structuredClone(DL);}
+  else{
+    // Migration: inject missing default modules, platforms, and lines
+    DM.forEach(dm=>{if(!M.find(m=>m.id===dm.id))M.push(structuredClone(dm))});
+    DP.forEach(dp=>{if(!P.find(p=>p.id===dp.id&&p.module===dp.module))P.push(structuredClone(dp))});
+    DL.forEach(dl=>{if(!L.find(l=>l.id===dl.id))L.push(structuredClone(dl))});
+  }
   L.forEach(l=>{if(!l.history)l.history=[];if(l.deposit===undefined)l.deposit=0;if(!l.currency)l.currency='INR';if(!l.withdrawals)l.withdrawals=[];if(!l.transfers)l.transfers=[];if(!l.losses)l.losses=[];});
 }
 
@@ -200,15 +373,24 @@ function gP(id){return P.find(p=>p.id===id)}
 
 function gFilt(){
   let r=L;
-  if(aM!=="all")r=r.filter(l=>l.module===aM);
-  if(srch){const s=srch.toLowerCase();r=r.filter(l=>l.id.toLowerCase().includes(s)||l.platform.toLowerCase().includes(s)||l.notes.toLowerCase().includes(s)||l.currency.toLowerCase().includes(s))}
+  if(aM!=="all"&&aM!=="__dash__"&&aM!=="__exp__"&&aM!=="__strat__"&&aM!=="__flow__"&&aM!=="__macro__"&&aM!=="__calc__")r=r.filter(l=>l.module===aM);
+  if(srch){const s=srch.toLowerCase();r=r.filter(l=>l.id.toLowerCase().includes(s)||l.platform.toLowerCase().includes(s)||l.notes.toLowerCase().includes(s)||l.currency.toLowerCase().includes(s)||l.label.toLowerCase().includes(s)||l.module.toLowerCase().includes(s))}
   if(filt!=="all")r=r.filter(l=>l.status===filt);
+  if(catFilt){const cat=CATS.find(c=>c.id===catFilt);if(cat)r=r.filter(l=>cat.modules.includes(l.module))}
+  if(sortBy==="balance")r=[...r].sort((a,b)=>b.balance-a.balance);
+  else if(sortBy==="pnl")r=[...r].sort((a,b)=>gPnL(b)-gPnL(a));
   return r;
 }
 function gWD(l){return(l.withdrawals||[]).reduce((s,w)=>s+w.amt,0)}
 function gPnL(l){return l.balance+gWD(l)-l.deposit}
 function getPeriodWd(currency,period){const d=new Date();let cut=0;if(period==='day')cut=new Date(d.getFullYear(),d.getMonth(),d.getDate()).getTime();else if(period==='week'){const dy=d.getDay();cut=new Date(d.getFullYear(),d.getMonth(),d.getDate()-dy).getTime();}else if(period==='month')cut=new Date(d.getFullYear(),d.getMonth(),1).getTime();return L.filter(l=>(l.currency||'INR')===currency).reduce((s,l)=>s+(l.withdrawals||[]).filter(w=>w.ts>=cut).reduce((ss,w)=>ss+w.amt,0),0)}
 function sPeriod(p){dashP=p;R()}
+function sCatF(c){catFilt=catFilt===c?null:c;R()}
+function sSort(s){sortBy=sortBy===s?"default":s;R()}
+function addMacroMod(id,name,icon,color,desc){
+  if(M.some(m=>m.id===id))return toast("Already exists");
+  M.push({id,name,icon,color,desc});lg(`Module: ${name}`);sv();R();toast(`${name} added`);
+}
 function curBk(ls){const b={};ls.forEach(l=>{const c=l.currency||"INR";if(!b[c])b[c]={bal:0,dep:0,wd:0};b[c].bal+=l.balance;b[c].dep+=l.deposit;b[c].wd+=gWD(l)});return Object.keys(b).sort((a,x)=>a==="INR"?-1:x==="INR"?1:a.localeCompare(x)).map(c=>({cur:c,...b[c],pnl:b[c].bal+b[c].wd-b[c].dep}))}
 function grp(ls){const g={};ls.forEach(l=>{if(!g[l.platform])g[l.platform]=[];g[l.platform].push(l)});return g}
 function spk(h,c){if(!h||h.length<2)return"";const v=h.slice(-12).map(x=>x.bal),mx=Math.max(...v,1);return`<div class="line-mini-spark">${v.map((x,i)=>`<div class="mini-bar" style="height:${Math.max(2,(x/mx)*18)}px;background:${c};opacity:${i===v.length-1?.9:.25+(i/v.length)*.35}"></div>`).join("")}</div>`}
@@ -490,6 +672,319 @@ function rExp(){
     h+=`</div>`;
   }else{h+=`<div style="text-align:center;padding:48px 20px;color:var(--text4);font-size:11px">No expenses yet.<br><span style="color:var(--text3)">Tap a category above to add one.</span></div>`;}
   return h;
+}
+
+// ─── V5: Strategy View ────────────────────────────────────────────────────────
+function rStrat(){
+  let h='';
+  h+=`<div class="dash-sep">STRATEGY GROUPS</div>`;
+  STRATS.forEach(st=>{
+    const sLines=L.filter(l=>gStrat(l)?.id===st.id);
+    if(!sLines.length)return;
+    const bal=sLines.reduce((s,l)=>s+l.balance,0);
+    const dep=sLines.reduce((s,l)=>s+l.deposit,0);
+    const wd=sLines.reduce((s,l)=>s+gWD(l),0);
+    const net=bal+wd-dep;
+    const funded=sLines.filter(l=>l.balance>0).length;
+    h+=`<div class="dash-card" style="margin-bottom:10px;border-left:3px solid ${net>0?'var(--green)':net<0?'var(--red)':'var(--border2)'}">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+        <div style="display:flex;gap:10px;align-items:center">
+          <span style="font-size:22px">${st.icon}</span>
+          <div><div style="font-family:'Oxanium',sans-serif;font-size:13px;font-weight:700;color:var(--text)">${st.name}</div>
+          <div style="font-size:9px;color:var(--text4)">${sLines.length} lines · ${funded} funded</div></div>
+        </div>
+        <div style="text-align:right">
+          <div style="font-family:'Oxanium',sans-serif;font-size:15px;font-weight:700;color:var(--text)">${fmt(bal,'INR')}</div>
+          ${dep>0?`<div style="font-size:9px;color:${net>=0?'var(--green)':'var(--red)'}">${fS(net,'INR')}</div>`:''}
+        </div>
+      </div>
+      <div style="display:flex;gap:4px;flex-wrap:wrap">${sLines.map(l=>{const mc=gM(l.module);return`<span style="font-size:8px;padding:2px 6px;border-radius:3px;background:${mc?.color||'#555'}15;color:${mc?.color||'#888'};font-weight:600;letter-spacing:.5px">${l.id}</span>`}).join('')}</div>
+    </div>`;
+  });
+  const unassigned=L.filter(l=>!gStrat(l));
+  if(unassigned.length){
+    h+=`<div class="dash-sep">UNASSIGNED (${unassigned.length})</div><div class="dash-card"><div style="display:flex;gap:4px;flex-wrap:wrap">${unassigned.map(l=>`<span style="font-size:8px;padding:2px 6px;border-radius:3px;background:var(--surface3);color:var(--text4);letter-spacing:.5px">${l.id}</span>`).join('')}</div></div>`;
+  }
+  return h;
+}
+
+// ─── V5: Flow View ────────────────────────────────────────────────────────────
+function rFlow(){
+  let h='';
+  const catData=CATS.map(cat=>{
+    const cLines=L.filter(l=>cat.modules.includes(l.module));
+    const bal=cLines.reduce((s,l)=>s+l.balance,0);
+    const dep=cLines.reduce((s,l)=>s+l.deposit,0);
+    return{...cat,bal,dep,lc:cLines.length};
+  });
+  const totalBal=catData.reduce((s,c)=>s+c.bal,0);
+  const totalDep=catData.reduce((s,c)=>s+c.dep,0);
+
+  h+=`<div class="dash-card" style="margin-bottom:10px"><div style="font-size:8px;color:var(--text3);letter-spacing:2px;margin-bottom:12px">CAPITAL FLOW SYSTEM</div>
+    <div style="display:flex;justify-content:center;align-items:center;gap:6px;padding:10px 0;flex-wrap:wrap">`;
+  const flowNodes=[{i:"⚡",c:"#EF4444",n:"FAST"},{i:"→",c:"#444"},{i:"📈",c:"#F59E0B",n:"GROWTH"},{i:"→",c:"#444"},{i:"🛡️",c:"#10B981",n:"STORE"}];
+  flowNodes.forEach(f=>{
+    if(f.n){const cd=catData.find(c=>c.name.toUpperCase().startsWith(f.n.substring(0,4)));
+      h+=`<div style="text-align:center;min-width:64px"><div style="width:44px;height:44px;border-radius:50%;border:2px solid ${f.c};display:flex;align-items:center;justify-content:center;font-size:18px;background:var(--bg2);margin:0 auto;box-shadow:0 0 12px ${f.c}33">${f.i}</div>
+      <div style="font-size:9px;font-weight:700;color:${f.c};margin-top:4px">${f.n}</div>
+      <div style="font-family:'Oxanium',sans-serif;font-size:11px;font-weight:700;color:var(--text);margin-top:2px">${fmt(cd?.bal||0,'INR')}</div></div>`;
+    }else{h+=`<span style="font-size:18px;color:${f.c};font-weight:900">${f.i}</span>`}
+  });
+  h+=`</div><div style="display:flex;justify-content:center;gap:24px;margin-top:10px">`;
+  [{i:"🔄",c:"#06B6D4",n:"ARB"},{i:"🧪",c:"#8B5CF6",n:"EXPER"}].forEach(f=>{
+    const cd=catData.find(c=>c.name.toUpperCase().startsWith(f.n.substring(0,3)));
+    h+=`<div style="text-align:center"><div style="width:40px;height:40px;border-radius:50%;border:2px solid ${f.c};display:flex;align-items:center;justify-content:center;font-size:16px;background:var(--bg2);margin:0 auto;box-shadow:0 0 10px ${f.c}33">${f.i}</div>
+    <div style="font-size:8px;font-weight:700;color:${f.c};margin-top:3px">${f.n}</div>
+    <div style="font-family:'Oxanium',sans-serif;font-size:10px;font-weight:600;color:var(--text)">${fmt(cd?.bal||0,'INR')}</div></div>`;
+  });
+  h+=`</div></div>`;
+
+  h+=`<div class="dash-card" style="margin-bottom:10px"><div style="font-size:8px;color:var(--text3);letter-spacing:2px;margin-bottom:10px">RISK ALLOCATION</div>
+    <div style="display:flex;gap:2px;height:24px;border-radius:5px;overflow:hidden;margin-bottom:10px">`;
+  catData.forEach(c=>{h+=`<div style="flex:${c.lc};background:${c.color};display:flex;align-items:center;justify-content:center;font-size:7px;font-weight:800;color:#000;min-width:${c.lc>0?16:0}px">${c.lc>3?c.name.split('/')[0].split(' ')[0]:''}</div>`});
+  h+=`</div>`;
+  catData.forEach(c=>{
+    const actual=totalDep>0?((c.dep/totalDep)*100).toFixed(0):0;
+    h+=`<div style="display:flex;justify-content:space-between;align-items:center;padding:5px 0;border-bottom:1px solid var(--bg2)">
+      <div style="display:flex;align-items:center;gap:6px"><div style="width:7px;height:7px;border-radius:2px;background:${c.color}"></div><span style="font-size:10px;font-weight:600;color:var(--text2)">${c.name}</span></div>
+      <div style="display:flex;gap:10px;align-items:center;font-size:9px;letter-spacing:.5px">
+        <span style="color:var(--text4)">${c.lc}L</span>
+        <span style="color:var(--text4)">tgt ${c.target}%</span>
+        <span style="color:${c.color};font-weight:700">${actual}%</span>
+      </div>
+    </div>`;
+  });
+  h+=`</div>`;
+
+  const flows={};
+  L.forEach(l=>{(l.transfers||[]).forEach(t=>{if(t.type==='out'){const tgt=L.find(x=>x.id===t.peer);if(tgt&&tgt.module!==l.module){const k=l.module+'→'+tgt.module;flows[k]=(flows[k]||0)+t.amt}}})});
+  h+=`<div class="dash-card" style="margin-bottom:10px"><div style="font-size:8px;color:var(--text3);letter-spacing:2px;margin-bottom:10px">INTER-MODULE TRANSFERS</div>`;
+  const fk=Object.keys(flows);
+  if(fk.length){fk.forEach(k=>{const[from,to]=k.split('→');const mc1=gM(from),mc2=gM(to);h+=`<div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--bg2)"><div style="display:flex;gap:6px;align-items:center"><span style="color:${mc1?.color||'#888'};font-weight:700;font-size:10px">${mc1?.name||from}</span><span style="color:var(--text4)">→</span><span style="color:${mc2?.color||'#888'};font-weight:700;font-size:10px">${mc2?.name||to}</span></div><span style="font-family:'Oxanium',sans-serif;font-size:11px;font-weight:600;color:var(--text)">${fmt(flows[k],'INR')}</span></div>`})}
+  else{h+=`<div style="color:var(--text4);font-size:10px;text-align:center;padding:16px">No inter-module transfers yet</div>`}
+  h+=`</div>`;
+
+  h+=`<div class="dash-card"><div style="font-size:8px;color:var(--text3);letter-spacing:2px;margin-bottom:10px">CAPITAL DISTRIBUTION</div>`;
+  catData.forEach(c=>{
+    const pct=totalBal>0?((c.bal/totalBal)*100).toFixed(1):0;
+    h+=`<div style="margin-bottom:10px"><div style="display:flex;justify-content:space-between;margin-bottom:3px"><span style="font-size:10px;font-weight:700;color:${c.color}">${c.name}</span><span style="font-size:9px;color:var(--text3)">${fmt(c.bal,'INR')} · ${pct}%</span></div>
+    <div style="height:5px;background:var(--surface3);border-radius:3px;overflow:hidden"><div style="height:100%;width:${Math.min(pct,100)}%;background:${c.color};border-radius:3px;transition:width .5s"></div></div>
+    <div style="display:flex;justify-content:space-between;margin-top:2px"><span style="font-size:7px;color:var(--text4)">actual: ${pct}%</span><span style="font-size:7px;color:var(--text4)">target: ${c.target}%</span></div></div>`;
+  });
+  h+=`</div>`;
+  return h;
+}
+
+// ─── V5: Macro Tracking View ──────────────────────────────────────────────────
+function rMacro(){
+  let h='';
+  h+=`<div class="dash-sep">MACRO / COUNTRY / CURRENCY TRACKING</div>
+  <div style="font-size:9px;color:var(--text4);margin-bottom:12px">Observation lines — track markets, economies, rates. No capital allocated.</div>`;
+  MACRO_LINES.forEach(grp=>{
+    const mc=gM(grp.mod);
+    h+=`<div class="dash-card" style="margin-bottom:10px;border-left:3px solid ${mc?.color||'var(--purple)'}">
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px">
+        <span style="font-size:18px">${mc?.icon||'🌍'}</span>
+        <span style="font-family:'Oxanium',sans-serif;font-size:12px;font-weight:700;color:${mc?.color||'#EC4899'}">${mc?.name||grp.mod.toUpperCase()}</span>
+        <span style="font-size:8px;color:var(--text4)">${grp.items.length} items</span>
+      </div>
+      <div style="display:flex;flex-wrap:wrap;gap:4px">
+        ${grp.items.map(item=>{
+          const exists=L.find(l=>l.label.toLowerCase().includes(item.toLowerCase())||l.id.toLowerCase().includes(item.toLowerCase().replace(/[^a-z0-9]/g,'')));
+          return`<div style="padding:5px 10px;border-radius:4px;border:1px solid ${exists?mc?.color||'var(--purple)':'var(--border)'};background:${exists?(mc?.color||'#EC4899')+'12':'var(--surface)'};font-size:9px;color:${exists?mc?.color||'#EC4899':'var(--text3)'};letter-spacing:.5px;font-weight:${exists?'600':'400'}">${item}${exists?' ✓':''}</div>`;
+        }).join('')}
+      </div>
+    </div>`;
+  });
+  const macroMods=[
+    {id:"currency",name:"Currency",icon:"📱",color:"#3B82F6",desc:"Forex pairs tracking"},
+    {id:"country",name:"Country",icon:"🌍",color:"#8B5CF6",desc:"Economy tracking"},
+    {id:"macro",name:"Macro",icon:"🌍",color:"#EC4899",desc:"Interest rates, inflation"},
+    {id:"cds",name:"CDS",icon:"⚠️",color:"#EF4444",desc:"Country default risk"},
+    {id:"index",name:"Index",icon:"📊",color:"#F59E0B",desc:"Nifty, S&P 500"},
+    {id:"commodities",name:"Commodities",icon:"🛢️",color:"#D4A017",desc:"Oil, Gold, Copper"}
+  ];
+  h+=`<div class="dash-sep">QUICK ADD MODULES</div><div style="display:grid;grid-template-columns:1fr 1fr;gap:6px">`;
+  macroMods.forEach(mm=>{
+    const exists=M.find(m=>m.id===mm.id);
+    h+=`<div onclick="${exists?`sM('${mm.id}')`:`addMacroMod('${mm.id}','${mm.name}','${mm.icon}','${mm.color}','${mm.desc}')`}" style="padding:12px;background:var(--surface);border:1px solid ${exists?mm.color:'var(--border)'};border-radius:7px;cursor:pointer;text-align:center;-webkit-tap-highlight-color:transparent">
+      <div style="font-size:20px;margin-bottom:4px">${mm.icon}</div>
+      <div style="font-family:'Oxanium',sans-serif;font-size:10px;font-weight:700;color:${mm.color}">${mm.name}</div>
+      <div style="font-size:8px;color:var(--text4);margin-top:2px">${exists?'✓ Added — tap to view':'Tap to add'}</div>
+    </div>`;
+  });
+  h+=`</div>`;
+  return h;
+}
+
+// ─── V5: Calculators ──────────────────────────────────────────────────────────
+function sCalcTab(t){calcTab=t;R()}
+
+function rCalc(){
+  let h='';
+  const tabs=[
+    {id:'compound',name:'Compound',icon:'📈'},{id:'projection',name:'Projection',icon:'📊'},
+    {id:'monthly',name:'Monthly Req',icon:'💰'},{id:'fire',name:'FIRE',icon:'🔥'},
+    {id:'lineGrow',name:'Line Growth',icon:'📈'},{id:'roi',name:'ROI Sim',icon:'🎯'},
+    {id:'risk',name:'Risk/Return',icon:'⚖️'},{id:'goal',name:'Goals',icon:'🏆'},
+    {id:'contrib',name:'Contrib',icon:'📊'},{id:'inflation',name:'Inflation',icon:'💸'}
+  ];
+  h+=`<div style="display:flex;gap:3px;overflow-x:auto;-webkit-overflow-scrolling:touch;scrollbar-width:none;margin-bottom:14px;padding:2px">
+    ${tabs.map(t=>`<div class="chip ${calcTab===t.id?'active':''}" onclick="sCalcTab('${t.id}')" style="white-space:nowrap">${t.icon} ${t.name}</div>`).join('')}
+  </div>`;
+  if(calcTab==='compound') h+=rCalcCompound();
+  else if(calcTab==='projection') h+=rCalcProjection();
+  else if(calcTab==='monthly') h+=rCalcMonthly();
+  else if(calcTab==='fire') h+=rCalcFire();
+  else if(calcTab==='lineGrow') h+=rCalcLineGrow();
+  else if(calcTab==='roi') h+=rCalcROI();
+  else if(calcTab==='risk') h+=rCalcRisk();
+  else if(calcTab==='goal') h+=rCalcGoal();
+  else if(calcTab==='contrib') h+=rCalcContrib();
+  else if(calcTab==='inflation') h+=rCalcInflation();
+  return h;
+}
+
+function _ci(id,label,val,ph,extra=''){return`<div class="modal-field" style="margin-bottom:10px"><label class="modal-label">${label}</label><input type="number" id="${id}" class="modal-input" value="${val}" placeholder="${ph}" step="any" oninput="R()" ${extra}></div>`}
+function _cv(id){return parseFloat(document.getElementById(id)?.value)||0}
+function _cr(label,val,color){return`<div style="display:flex;justify-content:space-between;padding:8px 12px;background:var(--surface3);border-radius:5px;margin-bottom:4px;border-left:3px solid ${color||'var(--cyan)'}"><span style="font-size:10px;color:var(--text3)">${label}</span><span style="font-family:'Oxanium',sans-serif;font-size:13px;font-weight:700;color:${color||'var(--cyan)'}">${val}</span></div>`}
+
+function rCalcCompound(){
+  const p=_cv('cc-p')||10000,r=_cv('cc-r')||12,n=_cv('cc-n')||10,m=_cv('cc-m')||1000;
+  const rM=r/100/12,months=n*12;
+  let fv=p*Math.pow(1+rM,months);for(let i=0;i<months;i++)fv+=m*Math.pow(1+rM,months-i-1);
+  const totalInvested=p+m*months,gains=fv-totalInvested;
+  return`<div class="dash-card"><div style="font-size:8px;color:var(--text3);letter-spacing:2px;margin-bottom:12px">COMPOUNDING CALCULATOR</div>
+    ${_ci('cc-p','Initial Investment (₹)',p,'10000')}${_ci('cc-r','Annual Return (%)',r,'12')}${_ci('cc-n','Years',n,'10')}${_ci('cc-m','Monthly Addition (₹)',m,'1000')}
+    <div style="margin-top:14px">${_cr('Total Invested',fmt(totalInvested,'INR'),'var(--blue)')}${_cr('Final Wealth',fmt(Math.round(fv),'INR'),'var(--green)')}${_cr('Wealth Gained',fmt(Math.round(gains),'INR'),'var(--amber)')}${_cr('Growth Multiple',(fv/totalInvested).toFixed(2)+'x','var(--purple)')}</div>
+  </div>`;
+}
+
+function rCalcProjection(){
+  const totalBal=L.reduce((s,l)=>s+l.balance,0),totalDep=L.reduce((s,l)=>s+l.deposit,0);
+  const r=_cv('cp-r')||12,m=_cv('cp-m')||5000,rM=r/100/12;
+  const results=[5,10,15,20].map(y=>{let fv=totalBal*Math.pow(1+rM,y*12);for(let i=0;i<y*12;i++)fv+=m*Math.pow(1+rM,y*12-i-1);return{y,fv:Math.round(fv)}});
+  return`<div class="dash-card"><div style="font-size:8px;color:var(--text3);letter-spacing:2px;margin-bottom:12px">PORTFOLIO PROJECTION</div>
+    <div style="font-size:10px;color:var(--text2);margin-bottom:10px">Current Portfolio: <span style="color:var(--green);font-weight:700">${fmt(totalBal,'INR')}</span></div>
+    ${_ci('cp-r','Expected Annual Return (%)',r,'12')}${_ci('cp-m','Monthly Addition (₹)',m,'5000')}
+    <div style="margin-top:14px">${results.map(r=>_cr(`In ${r.y} years`,fmt(r.fv,'INR'),r.fv>=10000000?'var(--green)':r.fv>=1000000?'var(--amber)':'var(--cyan)')).join('')}</div>
+  </div>`;
+}
+
+function rCalcMonthly(){
+  const target=_cv('cm-t')||10000000,r=_cv('cm-r')||12,n=_cv('cm-n')||15;
+  const rM=r/100/12,months=n*12,existing=L.reduce((s,l)=>s+l.balance,0);
+  const fvExisting=existing*Math.pow(1+rM,months),remaining=Math.max(0,target-fvExisting);
+  const monthly=remaining>0?remaining/(((Math.pow(1+rM,months)-1)/rM)):0;
+  return`<div class="dash-card"><div style="font-size:8px;color:var(--text3);letter-spacing:2px;margin-bottom:12px">REQUIRED MONTHLY INVESTMENT</div>
+    ${_ci('cm-t','Target Amount (₹)',target,'10000000')}${_ci('cm-r','Expected Return (%)',r,'12')}${_ci('cm-n','Years',n,'15')}
+    <div style="margin-top:14px">${_cr('Current Portfolio',fmt(existing,'INR'),'var(--blue)')}${_cr(`Portfolio in ${n}yr (untouched)`,fmt(Math.round(fvExisting),'INR'),'var(--cyan)')}${_cr('Gap to Target',fmt(Math.round(remaining),'INR'),'var(--amber)')}${_cr('Monthly SIP Needed',fmt(Math.round(monthly),'INR'),'var(--green)')}${_cr('Daily Equivalent',fmt(Math.round(monthly/30),'INR'),'var(--text2)')}</div>
+  </div>`;
+}
+
+function rCalcFire(){
+  const expense=_cv('cf-e')||30000,r=_cv('cf-r')||8,inf=_cv('cf-i')||6,n=_cv('cf-n')||10;
+  const realRate=((1+r/100)/(1+inf/100)-1)*100,futureExpense=expense*Math.pow(1+inf/100,n)*12;
+  const fireCorpus=futureExpense/(realRate/100),swrCorpus=expense*12*25,leanFire=expense*12*20,fatFire=expense*12*33;
+  const curBal=L.reduce((s,l)=>s+l.balance,0);
+  return`<div class="dash-card"><div style="font-size:8px;color:var(--text3);letter-spacing:2px;margin-bottom:12px">🔥 FIRE / PASSIVE INCOME CALCULATOR</div>
+    ${_ci('cf-e','Monthly Expense (₹)',expense,'30000')}${_ci('cf-r','Expected Return (%)',r,'8')}${_ci('cf-i','Inflation (%)',inf,'6')}${_ci('cf-n','Years to FIRE',n,'10')}
+    <div style="margin-top:14px">${_cr(`Annual Expense in ${n}yr`,fmt(Math.round(futureExpense),'INR'),'var(--amber)')}${_cr('Real Return Rate',realRate.toFixed(2)+'%','var(--cyan)')}${_cr('Lean FIRE (20x)',fmt(Math.round(leanFire),'INR'),'var(--blue)')}${_cr('Regular FIRE (25x)',fmt(Math.round(swrCorpus),'INR'),'var(--green)')}${_cr('Fat FIRE (33x)',fmt(Math.round(fatFire),'INR'),'var(--purple)')}${_cr('Inflation-adj Corpus',fmt(Math.round(fireCorpus),'INR'),'var(--amber)')}${_cr('Gap to FIRE',fmt(Math.round(Math.max(0,swrCorpus-curBal)),'INR'),'var(--red)')}</div>
+  </div>`;
+}
+
+function rCalcLineGrow(){
+  let h=`<div class="dash-card"><div style="font-size:8px;color:var(--text3);letter-spacing:2px;margin-bottom:12px">LINE GROWTH PROJECTION</div>`;
+  const funded=L.filter(l=>l.deposit>0&&(l.currency||'INR')==='INR').sort((a,b)=>gPnL(b)-gPnL(a)).slice(0,10);
+  if(!funded.length){return h+`<div style="color:var(--text4);text-align:center;padding:20px;font-size:10px">No funded lines yet.</div></div>`}
+  funded.forEach(l=>{
+    const pnl=gPnL(l),roi=l.deposit>0?((pnl/l.deposit)*100).toFixed(1):'0';
+    const daysSince=l.history.length>1?Math.max(1,Math.round((Date.now()-l.history[0].ts)/86400000)):30;
+    const dailyRate=l.deposit>0?(pnl/l.deposit)/daysSince:0;
+    const proj30=l.balance*Math.pow(1+dailyRate,30),proj90=l.balance*Math.pow(1+dailyRate,90);
+    const mc=gM(l.module);
+    h+=`<div style="padding:10px;background:var(--surface);border:1px solid var(--border);border-left:3px solid ${mc?.color||'#555'};border-radius:6px;margin-bottom:6px">
+      <div style="display:flex;justify-content:space-between;margin-bottom:4px"><span style="font-size:10px;color:var(--text);font-weight:600">${l.id}</span><span style="font-size:9px;color:${pnl>=0?'var(--green)':'var(--red)'}">${roi}% ROI</span></div>
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:4px;font-size:8px">
+        <div><span style="color:var(--text4)">NOW </span><span style="color:var(--text)">${fmt(l.balance,'INR')}</span></div>
+        <div><span style="color:var(--text4)">30D </span><span style="color:var(--cyan)">${fmt(Math.round(proj30),'INR')}</span></div>
+        <div><span style="color:var(--text4)">90D </span><span style="color:var(--green)">${fmt(Math.round(proj90),'INR')}</span></div>
+      </div>
+    </div>`;
+  });
+  return h+`</div>`;
+}
+
+function rCalcROI(){
+  const invest=_cv('cr-i')||10000,target=_cv('cr-t')||100000,days=_cv('cr-d')||365;
+  const roi=(target-invest)/invest*100,daily=Math.pow(target/invest,1/days)-1,monthly=Math.pow(1+daily,30)-1,annual=Math.pow(1+daily,365)-1;
+  return`<div class="dash-card"><div style="font-size:8px;color:var(--text3);letter-spacing:2px;margin-bottom:12px">ROI SIMULATOR</div>
+    ${_ci('cr-i','Investment (₹)',invest,'10000')}${_ci('cr-t','Target (₹)',target,'100000')}${_ci('cr-d','Days',days,'365')}
+    <div style="margin-top:14px">${_cr('Total ROI',roi.toFixed(1)+'%','var(--green)')}${_cr('Daily Rate',(daily*100).toFixed(4)+'%','var(--cyan)')}${_cr('Monthly Rate',(monthly*100).toFixed(2)+'%','var(--blue)')}${_cr('Annualized',(annual*100).toFixed(1)+'%','var(--amber)')}${_cr('Multiplier',(target/invest).toFixed(2)+'x','var(--purple)')}</div>
+  </div>`;
+}
+
+function rCalcRisk(){
+  let h=`<div class="dash-card"><div style="font-size:8px;color:var(--text3);letter-spacing:2px;margin-bottom:12px">RISK VS RETURN BY CATEGORY</div>`;
+  CATS.forEach(cat=>{
+    const cLines=L.filter(l=>cat.modules.includes(l.module));if(!cLines.length)return;
+    const bal=cLines.reduce((s,l)=>s+l.balance,0),dep=cLines.reduce((s,l)=>s+l.deposit,0);
+    const totalLoss=cLines.reduce((s,l)=>s+(l.losses||[]).reduce((a,w)=>a+w.amt,0),0);
+    const pnl=bal+cLines.reduce((s,l)=>s+gWD(l),0)-dep,roi=dep>0?((pnl/dep)*100).toFixed(1):'0';
+    const lossRatio=dep>0?((totalLoss/dep)*100).toFixed(1):'0';
+    h+=`<div style="padding:10px;background:var(--surface);border:1px solid var(--border);border-left:3px solid ${cat.color};border-radius:6px;margin-bottom:6px">
+      <div style="display:flex;justify-content:space-between;margin-bottom:6px"><span style="font-size:11px;font-weight:700;color:${cat.color}">${cat.name}</span><span style="font-size:9px;color:var(--text4)">${cLines.length}L · ${cat.desc}</span></div>
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:4px;font-size:8px">
+        <div><span style="color:var(--text4)">BAL</span><br><span style="color:var(--text);font-weight:600">${fmt(bal,'INR')}</span></div>
+        <div><span style="color:var(--text4)">ROI</span><br><span style="color:${pnl>=0?'var(--green)':'var(--red)'};font-weight:600">${roi}%</span></div>
+        <div><span style="color:var(--text4)">LOSS</span><br><span style="color:var(--red);font-weight:600">${fmt(totalLoss,'INR')}</span></div>
+        <div><span style="color:var(--text4)">RISK</span><br><span style="color:${parseFloat(lossRatio)>30?'var(--red)':'var(--amber)'};font-weight:600">${lossRatio}%</span></div>
+      </div>
+    </div>`;
+  });
+  return h+`</div>`;
+}
+
+function rCalcGoal(){
+  const goals=[{name:'₹1 Lakh',target:100000,icon:'🎯'},{name:'₹5 Lakh',target:500000,icon:'⭐'},{name:'₹10 Lakh',target:1000000,icon:'🔥'},{name:'₹25 Lakh',target:2500000,icon:'🚀'},{name:'₹50 Lakh',target:5000000,icon:'🔥'},{name:'₹1 Crore',target:10000000,icon:'💎'},{name:'₹2 Crore',target:20000000,icon:'💎'},{name:'₹5 Crore',target:50000000,icon:'💰'}];
+  const totalBal=L.reduce((s,l)=>s+l.balance,0),totalWd=L.reduce((s,l)=>s+gWD(l),0),netWealth=totalBal+totalWd;
+  let h=`<div class="dash-card"><div style="font-size:8px;color:var(--text3);letter-spacing:2px;margin-bottom:12px">🏆 GOAL TRACKER</div>
+    <div style="font-size:10px;color:var(--text2);margin-bottom:12px">Net Wealth: <span style="color:var(--green);font-weight:700">${fmt(netWealth,'INR')}</span></div>`;
+  goals.forEach(g=>{
+    const pct=Math.min(100,(netWealth/g.target)*100),done=pct>=100;
+    h+=`<div style="margin-bottom:10px;opacity:${done?'1':'0.8'}">
+      <div style="display:flex;justify-content:space-between;margin-bottom:3px"><span style="font-size:10px;color:${done?'var(--green)':'var(--text2)'};font-weight:${done?'700':'400'}">${g.icon} ${g.name} ${done?'✓':''}</span><span style="font-size:9px;color:var(--text3)">${pct.toFixed(1)}%</span></div>
+      <div style="height:6px;background:var(--surface3);border-radius:3px;overflow:hidden"><div style="height:100%;width:${pct}%;background:${done?'var(--green)':pct>50?'var(--amber)':'var(--blue)'};border-radius:3px;transition:width .5s"></div></div>
+      ${!done?`<div style="font-size:7px;color:var(--text4);margin-top:2px">Need ${fmt(Math.round(g.target-netWealth),'INR')} more</div>`:''}
+    </div>`;
+  });
+  return h+`</div>`;
+}
+
+function rCalcContrib(){
+  let h=`<div class="dash-card"><div style="font-size:8px;color:var(--text3);letter-spacing:2px;margin-bottom:12px">CONTRIBUTION TRACKER</div>`;
+  const moduleContrib={};
+  L.forEach(l=>{const mc=gM(l.module),name=mc?.name||l.module;if(!moduleContrib[name])moduleContrib[name]={dep:0,bal:0,wd:gWD(l),color:mc?.color||'#555'};moduleContrib[name].dep+=l.deposit;moduleContrib[name].bal+=l.balance;});
+  const totalDep=L.reduce((s,l)=>s+l.deposit,0);
+  Object.entries(moduleContrib).sort((a,b)=>b[1].dep-a[1].dep).forEach(([name,v])=>{
+    const pct=totalDep>0?((v.dep/totalDep)*100).toFixed(1):0;
+    h+=`<div style="display:flex;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid var(--bg2)">
+      <div style="width:8px;height:8px;border-radius:2px;background:${v.color}"></div>
+      <div style="flex:1"><div style="font-size:10px;color:var(--text)">${name}</div></div>
+      <div style="text-align:right;font-size:9px"><div style="color:var(--text3)">DEP ${fmt(v.dep,'INR')} · ${pct}%</div><div style="color:var(--text4)">BAL ${fmt(v.bal,'INR')}${v.wd>0?' · WD '+fmt(v.wd,'INR'):''}</div></div>
+    </div>`;
+  });
+  return h+`</div>`;
+}
+
+function rCalcInflation(){
+  const amt=_cv('ci-a')||100000,inf=_cv('ci-i')||6;
+  const results=[1,2,3,5,10,15,20].map(y=>({y,real:Math.round(amt/Math.pow(1+inf/100,y)),loss:Math.round(amt-amt/Math.pow(1+inf/100,y))}));
+  return`<div class="dash-card"><div style="font-size:8px;color:var(--text3);letter-spacing:2px;margin-bottom:12px">💸 INFLATION ADJUSTED VALUE</div>
+    ${_ci('ci-a','Amount Today (₹)',amt,'100000')}${_ci('ci-i','Inflation Rate (%)',inf,'6')}
+    <div style="margin-top:14px">${results.map(r=>_cr(`In ${r.y}yr — real value`,fmt(r.real,'INR'),r.y<=5?'var(--amber)':'var(--red)')).join('')}</div>
+    <div style="margin-top:8px;font-size:8px;color:var(--text4);text-align:center">At ${inf}% inflation, money loses ~${(100-100/Math.pow(1+inf/100,10)).toFixed(0)}% value in 10 years</div>
+  </div>`;
 }
 
 function resetAll(){
